@@ -1,8 +1,10 @@
 # Production override. Use with:
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#   (or: make prod)
 #
-# Removes the dev bind-mounts so the image's COPY is authoritative, switches
-# the frontend to `next build && next start`, and drops --reload from uvicorn.
+# Adds prod-specific ports + prod commands. Because base docker-compose.yml
+# has NO `ports:` section, the values below are the only ports docker will
+# bind — no merge surprises with dev defaults.
 
 services:
   backend:
@@ -11,23 +13,15 @@ services:
     # so we can deploy alongside other Docker apps that already use 8000.
     ports:
       - "127.0.0.1:${BACKEND_HOST_PORT:-8000}:8000"
-    volumes:
-      - backend_data:/data
     command: >
       sh -c "alembic upgrade head &&
              python scripts/seed.py &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000"
-    restart: unless-stopped
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
       target: prod
     # FRONTEND_HOST_PORT overridable in .env (default 3000).
     ports:
       - "127.0.0.1:${FRONTEND_HOST_PORT:-3000}:3000"
-    # Image already contains built artifacts; no source bind-mount.
-    volumes: []
     command: ["npm", "run", "start"]
-    restart: unless-stopped
