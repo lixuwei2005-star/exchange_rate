@@ -80,17 +80,14 @@ fmt:
 # ---------------------------------------------------------------------------
 
 scrape-once:
-	@echo "[not implemented yet] scrape-once will run all active scrapers once. (Phase 4+)"
-	@exit 1
+	docker compose exec backend python -c "import asyncio; from app.services.scraping import run_scraper; from app.scrapers import ALL_SCRAPERS; asyncio.run(asyncio.gather(*(run_scraper(c) for c in ALL_SCRAPERS)))"
 
 scrape:
 	@if [ -z "$(CHANNEL)" ]; then echo "usage: make scrape CHANNEL=boc"; exit 2; fi
-	@echo "[not implemented yet] scrape CHANNEL=$(CHANNEL). (Phase 4+)"
-	@exit 1
+	docker compose exec backend python -c "import asyncio; from app.services.scraping import run_scraper; print(asyncio.run(run_scraper('$(CHANNEL)')))"
 
 summary-now:
-	@echo "[not implemented yet] summary-now regenerates the AI summary. (Phase 6+)"
-	@exit 1
+	docker compose exec backend python -c "import asyncio; from app.services.summary import regenerate; r=asyncio.run(regenerate('CNY','MYR')); print(r.summary_zh if r else 'no output (see /admin/logs)')"
 
 # ---------------------------------------------------------------------------
 # Ops
