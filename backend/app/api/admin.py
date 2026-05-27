@@ -15,7 +15,10 @@ from app.auth import (
 )
 from app.db import get_session
 from app.models.admin_user import AdminUser
+from app.models.channel import Channel
 from app.schemas.admin import LoginRequest, MeResponse
+from app.scrapers import ALL_SCRAPERS
+from app.services.scraping import run_scraper
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -68,8 +71,31 @@ async def patch_channel(code: str, user: Annotated[AdminUser, Depends(current_ad
 
 
 @router.post("/channels/{code}/scrape-now")
-async def scrape_now(code: str, user: Annotated[AdminUser, Depends(current_admin)]):
-    _not_impl()
+async def scrape_now(
+    code: str,
+    user: Annotated[AdminUser, Depends(current_admin)],
+    session: Annotated[AsyncSession, Depends(get_session)],
+    base: str = "CNY",
+    quote: str = "MYR",
+) -> dict:
+    if code not in ALL_SCRAPERS:
+        raise HTTPException(status_code=404, detail=f"unknown channel: {code}")
+    channel = await session.get(Channel, code)
+    if channel is None:
+        raise HTTPException(status_code=404, detail=f"channel '{code}' not in DB")
+    snap = await run_scraper(code, base=base, quote=quote)
+    if snap is None:
+        # The scraper logged the error; surface it to the admin UI as 502.
+        raise HTTPException(
+            status_code=502,
+            detail="scrape failed; see channel.last_error_msg and /api/admin/logs",
+        )
+    return {
+        "ok": True,
+        "channel": code,
+        "rate": str(snap.rate),
+        "fetched_at": snap.fetched_at.isoformat(),
+    }
 
 
 @router.get("/settings")

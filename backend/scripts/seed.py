@@ -30,7 +30,7 @@ CHANNELS = [
         "code": "midmarket",
         "name_en": "Mid-market (Frankfurter)",
         "name_zh": "中间价（参考）",
-        "source_url": "https://api.frankfurter.app/latest?from=CNY&to=MYR",
+        "source_url": "https://api.frankfurter.dev/v1/latest?from=CNY&to=MYR",
     },
     {
         "code": "boc",
@@ -108,11 +108,12 @@ async def seed() -> None:
             if existing is None:
                 session.add(Currency(**c))
 
-        # channels (active=False)
+        # channels: only midmarket starts active (Phase 4); admin flips the
+        # rest on as their scrapers come online.
         for ch in CHANNELS:
             existing = await session.get(Channel, ch["code"])
             if existing is None:
-                session.add(Channel(active=False, **ch))
+                session.add(Channel(active=(ch["code"] == "midmarket"), **ch))
 
         # ai.* defaults
         for key, value in AI_DEFAULTS:
