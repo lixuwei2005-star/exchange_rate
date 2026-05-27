@@ -88,6 +88,36 @@ export type HealthResponse = {
   channels: Record<string, "fresh" | "stale" | "disabled">;
 };
 
+export type LatestRate = {
+  channel_code: string;
+  channel_name_zh: string;
+  rate: string; // decimal as string
+  rate_type: string;
+  fee_estimate: string | null;
+  fee_currency: string | null;
+  fetched_at: string; // ISO
+  is_stale: boolean;
+};
+
+export type HistoryPoint = {
+  date: string;
+  rate: string;
+};
+
+export type SummaryResponse = {
+  summary_zh: string | null;
+  generated_at: string | null;
+  model_used: string | null;
+};
+
 export const api = {
   health: () => apiFetch<HealthResponse>("/api/health"),
+  ratesLatest: (base = "CNY", quote = "MYR") =>
+    apiFetch<LatestRate[]>(`/api/rates/latest?base=${base}&quote=${quote}`),
+  ratesHistory: (channel: string, days = 30, base = "CNY", quote = "MYR") =>
+    apiFetch<HistoryPoint[]>(
+      `/api/rates/history?channel=${channel}&days=${days}&base=${base}&quote=${quote}`,
+    ),
+  summary: (base = "CNY", quote = "MYR") =>
+    apiFetch<SummaryResponse>(`/api/summary?base=${base}&quote=${quote}`),
 };
