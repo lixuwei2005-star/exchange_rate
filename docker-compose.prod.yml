@@ -1,0 +1,30 @@
+# Production override. Use with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Removes the dev bind-mounts so the image's COPY is authoritative, switches
+# the frontend to `next build && next start`, and drops --reload from uvicorn.
+
+services:
+  backend:
+    # Bind only the localhost interface — Nginx (BaoTa) proxies inbound.
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - backend_data:/data
+    command: >
+      sh -c "alembic upgrade head &&
+             python scripts/seed.py &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: prod
+    ports:
+      - "127.0.0.1:3000:3000"
+    # Image already contains built artifacts; no source bind-mount.
+    volumes: []
+    command: ["npm", "run", "start"]
+    restart: unless-stopped

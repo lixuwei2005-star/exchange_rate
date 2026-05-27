@@ -39,6 +39,16 @@ down:
 clean:
 	docker compose down -v
 
+# Production launch (on the OCI server, not your laptop).
+prod:
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+prod-down:
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml down
+
+prod-logs:
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f --tail=200
+
 # ---------------------------------------------------------------------------
 # Local (non-docker) runs
 # ---------------------------------------------------------------------------
