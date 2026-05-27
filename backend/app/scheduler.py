@@ -13,6 +13,7 @@ from app.models.channel import Channel
 
 # Importing registers all scraper classes.
 from app.scrapers import ALL_SCRAPERS  # noqa: F401
+from app.services.retention import run_retention
 from app.services.scraping import run_scraper
 from app.services.settings import get_setting
 from app.services.summary import regenerate as regenerate_summary
@@ -89,13 +90,25 @@ async def _ai_summary_job() -> None:
     await regenerate_summary("CNY", "MYR")
 
 
+async def _retention_job() -> None:
+    await run_retention()
+
+
 def start() -> None:
     if scheduler.running:
         return
     scheduler.start()
     # Defer the DB lookup so it runs inside the asyncio loop after startup.
     asyncio.create_task(_seed_active_jobs())
-    logger.info("APScheduler started (timezone=Asia/Singapore)")
+    # Nightly retention at 04:00 SGT (off-peak).
+    scheduler.add_job(
+        _retention_job,
+        trigger=CronTrigger(hour=4, minute=0, timezone="Asia/Singapore"),
+        id="retention:nightly",
+        replace_existing=True,
+        coalesce=True,
+    )
+    logger.info("APScheduler started (timezone=Asia/Singapore, retention=04:00 SGT)")
 
 
 def shutdown() -> None:
