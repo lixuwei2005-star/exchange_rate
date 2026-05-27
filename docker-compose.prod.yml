@@ -7,8 +7,10 @@
 services:
   backend:
     # Bind only the localhost interface — Nginx (BaoTa) proxies inbound.
+    # Host port is configurable via BACKEND_HOST_PORT in .env (default 8000),
+    # so we can deploy alongside other Docker apps that already use 8000.
     ports:
-      - "127.0.0.1:8000:8000"
+      - "127.0.0.1:${BACKEND_HOST_PORT:-8000}:8000"
     volumes:
       - backend_data:/data
     command: >
@@ -22,8 +24,9 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       target: prod
+    # FRONTEND_HOST_PORT overridable in .env (default 3000).
     ports:
-      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:${FRONTEND_HOST_PORT:-3000}:3000"
     # Image already contains built artifacts; no source bind-mount.
     volumes: []
     command: ["npm", "run", "start"]
