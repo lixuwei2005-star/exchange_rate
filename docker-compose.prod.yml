@@ -21,6 +21,11 @@ services:
   frontend:
     build:
       target: prod
+      # NEXT_PUBLIC_BACKEND_URL must be passed as a build arg because Next.js
+      # inlines NEXT_PUBLIC_* values into the client JS bundle during
+      # `next build`. Runtime env_file injection happens too late.
+      args:
+        NEXT_PUBLIC_BACKEND_URL: ${NEXT_PUBLIC_BACKEND_URL}
     # FRONTEND_HOST_PORT overridable in .env (default 3000).
     ports:
       - "127.0.0.1:${FRONTEND_HOST_PORT:-3000}:3000"

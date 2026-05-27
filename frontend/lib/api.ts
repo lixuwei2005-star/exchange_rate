@@ -16,7 +16,10 @@
  */
 
 const SERVER_BASE = process.env.BACKEND_URL_INTERNAL ?? "http://backend:8000";
-const CLIENT_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000";
+// NEXT_PUBLIC_* is statically inlined at build time. If unset, default to
+// relative URLs — correct for same-origin prod deployments behind a reverse
+// proxy. Dev sets the explicit cross-port URL via .env.
+const CLIENT_BASE = process.env.NEXT_PUBLIC_BACKEND_URL ?? "";
 
 function isServer(): boolean {
   return typeof window === "undefined";
