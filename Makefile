@@ -69,7 +69,7 @@ test:
 
 lint:
 	cd backend && ruff check . && black --check .
-	cd frontend && npm run lint && npx prettier --check .
+	cd frontend && npx eslint . --ext .ts,.tsx && npx prettier --check .
 
 fmt:
 	cd backend && ruff check --fix . && black .

@@ -15,17 +15,14 @@ router = APIRouter(prefix="/api", tags=["public"])
 
 @router.get("/health", response_model=HealthResponse)
 async def health(session: Annotated[AsyncSession, Depends(get_session)]) -> HealthResponse:
-    """Liveness + freshness summary. Map values: 'fresh' (recent success),
-    'stale' (last success > threshold or never), 'disabled' (active=False)."""
-    result = await session.execute(select(Channel))
+    """Liveness + freshness summary. Map only includes ACTIVE channels with
+    values 'fresh' (recent success) or 'stale' (last success > threshold or
+    never). Inactive channels are not in the map at all — so a fresh install
+    with everything disabled returns `{}`."""
+    result = await session.execute(select(Channel).where(Channel.active.is_(True)))
     channels: dict[str, str] = {}
     for ch in result.scalars():
-        if not ch.active:
-            channels[ch.code] = "disabled"
-        elif ch.last_success_at is None:
-            channels[ch.code] = "stale"
-        else:
-            channels[ch.code] = "fresh"
+        channels[ch.code] = "stale" if ch.last_success_at is None else "fresh"
     return HealthResponse(ok=True, channels=channels)
 
 
