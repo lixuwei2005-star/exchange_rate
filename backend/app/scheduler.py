@@ -4,6 +4,7 @@ import asyncio
 import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select
 
@@ -13,6 +14,8 @@ from app.models.channel import Channel
 # Importing registers all scraper classes.
 from app.scrapers import ALL_SCRAPERS  # noqa: F401
 from app.services.scraping import run_scraper
+from app.services.settings import get_setting
+from app.services.summary import regenerate as regenerate_summary
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +66,27 @@ async def _seed_active_jobs() -> None:
         for ch in rows.scalars():
             if ch.code in ALL_SCRAPERS:
                 schedule_channel(ch.code)
+
+        # AI cron (CLAUDE.md §10). Uses the SGT timezone configured on the
+        # scheduler. Skipped if `ai.enabled` is false or cron is empty.
+        if (await get_setting(session, "ai.enabled", "false")).lower() == "true":
+            cron = (await get_setting(session, "ai.schedule_cron", "")).strip()
+            if cron:
+                try:
+                    scheduler.add_job(
+                        _ai_summary_job,
+                        trigger=CronTrigger.from_crontab(cron, timezone="Asia/Singapore"),
+                        id="ai:summary",
+                        replace_existing=True,
+                        coalesce=True,
+                    )
+                    logger.info("scheduled ai:summary on cron %r SGT", cron)
+                except Exception as exc:
+                    logger.warning("ai.schedule_cron %r is invalid: %s", cron, exc)
+
+
+async def _ai_summary_job() -> None:
+    await regenerate_summary("CNY", "MYR")
 
 
 def start() -> None:

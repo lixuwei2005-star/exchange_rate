@@ -8,9 +8,10 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
+from app.models.ai_summary import AISummary
 from app.models.channel import Channel
 from app.models.rate_snapshot import RateSnapshot
-from app.schemas.public import HealthResponse, LatestRate
+from app.schemas.public import HealthResponse, HistoryPoint, LatestRate, SummaryResponse
 
 router = APIRouter(prefix="/api", tags=["public"])
 
@@ -47,7 +48,6 @@ async def rates_latest(
     base: str = Query("CNY"),
     quote: str = Query("MYR"),
 ) -> list[LatestRate]:
-    # subquery: latest fetched_at per active channel for this pair
     latest_subq = (
         select(
             RateSnapshot.channel_code.label("ch"),
@@ -102,23 +102,59 @@ async def rates_latest(
     return out
 
 
-@router.get("/rates/history")
+@router.get("/rates/history", response_model=list[HistoryPoint])
 async def rates_history(
+    session: Annotated[AsyncSession, Depends(get_session)],
     base: str = Query("CNY"),
     quote: str = Query("MYR"),
     channel: str = Query(...),
     days: int = Query(30, ge=1, le=365),
-):
-    raise HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="not implemented yet"
+) -> list[HistoryPoint]:
+    """One point per day (latest snapshot of that day) for the given channel/pair."""
+    cutoff = datetime.now(UTC) - timedelta(days=days)
+    q = (
+        select(RateSnapshot)
+        .where(
+            and_(
+                RateSnapshot.channel_code == channel,
+                RateSnapshot.base_currency == base,
+                RateSnapshot.quote_currency == quote,
+                RateSnapshot.fetched_at >= cutoff,
+            )
+        )
+        .order_by(RateSnapshot.fetched_at)
     )
+    snaps = list((await session.execute(q)).scalars())
+    by_day: dict[str, RateSnapshot] = {}
+    for s in snaps:
+        day = _as_utc(s.fetched_at).date().isoformat()
+        # keeping the last (latest within day) thanks to ascending order
+        by_day[day] = s
+    return [HistoryPoint(date=d, rate=s.rate) for d, s in sorted(by_day.items())]
 
 
-@router.get("/summary")
+@router.get("/summary", response_model=SummaryResponse)
 async def summary(
+    session: Annotated[AsyncSession, Depends(get_session)],
     base: str = Query("CNY"),
     quote: str = Query("MYR"),
-):
-    raise HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="not implemented yet"
+) -> SummaryResponse:
+    q = (
+        select(AISummary)
+        .where(AISummary.base_currency == base, AISummary.quote_currency == quote)
+        .order_by(AISummary.generated_at.desc())
+        .limit(1)
     )
+    row = (await session.execute(q)).scalar_one_or_none()
+    if row is None:
+        return SummaryResponse(summary_zh=None, generated_at=None, model_used=None)
+    return SummaryResponse(
+        summary_zh=row.summary_zh,
+        generated_at=_as_utc(row.generated_at),
+        model_used=row.model_used,
+    )
+
+
+# Keep this so old callers that hit /rates/latest under unforeseen circumstances
+# don't blow up. (No-op — already implemented above.)
+_ = status, HTTPException
