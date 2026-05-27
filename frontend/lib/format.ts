@@ -24,7 +24,10 @@ export function displayCnyPerMyr(myrPerCny: string | number): string {
 export function convertCnyToMyr(
   cnyAmount: number,
   myrPerCny: string | number,
-  fee: { kind: "flat-cny"; amount: number } | { kind: "flat-myr"; amount: number } | { kind: "none" },
+  fee:
+    | { kind: "flat-cny"; amount: number }
+    | { kind: "flat-myr"; amount: number }
+    | { kind: "none" },
 ): number {
   const r = typeof myrPerCny === "string" ? parseFloat(myrPerCny) : myrPerCny;
   if (!Number.isFinite(r) || r <= 0 || cnyAmount <= 0) return 0;

@@ -18,8 +18,7 @@ export default function RateHeadline({ myrPerCny }: Props) {
     <div className="text-center">
       <div className="text-sm text-neutral-500">{zhCN.midmarketLabel}</div>
       <div className="mt-2 text-4xl font-bold tracking-tight md:text-5xl">
-        {zhCN.heroPrefix}{" "}
-        <span className="tabular-nums">{display}</span> {zhCN.heroSuffix}
+        {zhCN.heroPrefix} <span className="tabular-nums">{display}</span> {zhCN.heroSuffix}
       </div>
       <div className="relative mt-2 inline-block">
         <button

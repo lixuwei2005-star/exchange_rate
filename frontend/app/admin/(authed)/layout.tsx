@@ -2,16 +2,9 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
+import AdminNav from "@/components/admin/AdminNav";
 import { apiFetch, HttpError } from "@/lib/api";
 
-/**
- * Server Component auth gate for everything inside the `(authed)` route
- * group. /admin/login lives OUTSIDE this group so it never recursively
- * triggers this check.
- *
- * Server Components don't carry the browser's cookies automatically — they
- * must be read via `next/headers` and forwarded as an explicit Cookie header.
- */
 async function verifySession(): Promise<{ username: string } | null> {
   const jar = cookies();
   const session = jar.get("admin_session");
@@ -30,5 +23,10 @@ async function verifySession(): Promise<{ username: string } | null> {
 export default async function AuthedAdminLayout({ children }: { children: ReactNode }) {
   const me = await verifySession();
   if (!me) redirect("/admin/login");
-  return <div className="min-h-screen bg-neutral-50">{children}</div>;
+  return (
+    <div className="min-h-screen bg-neutral-50">
+      <AdminNav username={me.username} />
+      <div className="mx-auto max-w-5xl px-4 py-6">{children}</div>
+    </div>
+  );
 }

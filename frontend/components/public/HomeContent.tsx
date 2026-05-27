@@ -15,8 +15,7 @@ export default function HomeContent({ initialRates }: Props) {
   const [amount, setAmount] = useState<number>(1000);
 
   const chartChannels = useMemo(
-    () =>
-      initialRates.map((r) => ({ code: r.channel_code, name_zh: r.channel_name_zh })),
+    () => initialRates.map((r) => ({ code: r.channel_code, name_zh: r.channel_name_zh })),
     [initialRates],
   );
 
