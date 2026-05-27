@@ -3,12 +3,6 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
-
-def _as_utc(dt: datetime) -> datetime:
-    """SQLite drops tz info — treat naive datetimes from the DB as UTC."""
-    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
-
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +17,11 @@ router = APIRouter(prefix="/api", tags=["public"])
 # A snapshot is considered "stale" if older than this. Chosen as 1.5x the
 # slowest configured refresh (6h → 9h, rounded up to 12h). Tightens in Phase 9.
 STALE_THRESHOLD = timedelta(hours=12)
+
+
+def _as_utc(dt: datetime) -> datetime:
+    """SQLite drops tz info — treat naive datetimes from the DB as UTC."""
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
 @router.get("/health", response_model=HealthResponse)
