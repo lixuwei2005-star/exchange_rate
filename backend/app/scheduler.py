@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from sqlalchemy import select
+
+from app.db import SessionLocal
+from app.models.channel import Channel
 
 # Importing registers all scraper classes.
 from app.scrapers import ALL_SCRAPERS  # noqa: F401
@@ -14,8 +19,7 @@ logger = logging.getLogger(__name__)
 # Server is in Singapore (OCI Singapore region). ai.schedule_cron in §10 is SGT.
 scheduler = AsyncIOScheduler(timezone="Asia/Singapore")
 
-# Per-channel refresh intervals (minutes). Source: CLAUDE.md §6. New scrapers
-# get added here as they're implemented.
+# Per-channel refresh intervals (minutes). Source: CLAUDE.md §6.
 REFRESH_MINUTES: dict[str, int] = {
     "midmarket": 30,
     "wise": 30,
@@ -28,7 +32,11 @@ REFRESH_MINUTES: dict[str, int] = {
 }
 
 
-def _schedule_channel(code: str, minutes: int) -> None:
+def schedule_channel(code: str) -> None:
+    """Add (or replace) a scheduled job for one channel. Used at startup and
+    by the admin "toggle active" endpoint."""
+    minutes = REFRESH_MINUTES.get(code, 60)
+
     async def _job() -> None:
         await run_scraper(code, base="CNY", quote="MYR")
 
@@ -43,17 +51,27 @@ def _schedule_channel(code: str, minutes: int) -> None:
     )
 
 
+def unschedule_channel(code: str) -> None:
+    job_id = f"scrape:{code}"
+    if scheduler.get_job(job_id):
+        scheduler.remove_job(job_id)
+
+
+async def _seed_active_jobs() -> None:
+    async with SessionLocal() as session:
+        rows = await session.execute(select(Channel).where(Channel.active.is_(True)))
+        for ch in rows.scalars():
+            if ch.code in ALL_SCRAPERS:
+                schedule_channel(ch.code)
+
+
 def start() -> None:
     if scheduler.running:
         return
-    # Phase 4: only midmarket is implemented end-to-end. Other channels get
-    # registered as their scrapers come online in Phase 5.
-    _schedule_channel("midmarket", REFRESH_MINUTES["midmarket"])
     scheduler.start()
-    logger.info(
-        "APScheduler started (timezone=Asia/Singapore, jobs=%d)",
-        len(scheduler.get_jobs()),
-    )
+    # Defer the DB lookup so it runs inside the asyncio loop after startup.
+    asyncio.create_task(_seed_active_jobs())
+    logger.info("APScheduler started (timezone=Asia/Singapore)")
 
 
 def shutdown() -> None:
