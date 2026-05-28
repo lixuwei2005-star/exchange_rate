@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     admin_username: str = "admin"
     admin_password: str = ""
 
+    # API key for the third midmarket source (exchangerate-api.com v6).
+    # Empty => scraper raises ScraperError instead of making an authenticated
+    # call. Set EXCHANGERATE_API_KEY in .env (NOT committed). See CLAUDE.md §6.
+    exchangerate_api_key: str = ""
+
     # Public name used in logs / health.
     app_name: str = "rate.005917.xyz"
 

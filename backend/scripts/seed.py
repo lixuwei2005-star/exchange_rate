@@ -52,6 +52,18 @@ CHANNELS = [
         "daily_time_cn": None,
     },
     {
+        # Tertiary midmarket (exchangerate-api.com v6 — authenticated, daily).
+        # API key lives in EXCHANGERATE_API_KEY env, not in DB. If key is
+        # unset the scraper raises a clear error and the channel stays stale.
+        "code": "midmarket3",
+        "name_en": "Mid-market 3 (exchangerate-api.com)",
+        "name_zh": "中间市场汇率 3",
+        "source_url": "https://www.exchangerate-api.com/",
+        "schedule_kind": "interval",
+        "interval_minutes": 60,
+        "daily_time_cn": None,
+    },
+    {
         "code": "boc",
         "name_en": "Bank of China",
         "name_zh": "中国银行",
