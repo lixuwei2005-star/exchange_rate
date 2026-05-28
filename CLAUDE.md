@@ -82,7 +82,7 @@ Each scraper must return rate as **MYR per 1 CNY**. Reference:
 ### 2.6 Sanity checks (write tests)
 
 - Stored `rate` must be in `[0.5, 0.8]` (MYR per CNY). Outside → reject snapshot, log error.
-- For 1000 CNY input, output MYR after fees must be in `[500, 800]`. Outside → reject.
+- For 1000 CNY input, output MYR must be in `[500, 800]`. Outside → reject.
 - Spread across channels (max rate − min rate) should be < 5% of mid. Wider → flag, do not auto-reject (could be a real event).
 
 ---
@@ -245,29 +245,7 @@ See §2 for direction and field selection. URLs below are starting points — ve
 
 ### Fee model
 
-```python
-# backend/app/services/conversion.py
-# All values verified 2026-05-27. Add # TODO recheck-YYYY-MM when adding new constants.
-
-BOC_TT_FEE_CNY = 50            # BOC TT outbound flat fee. Source: BOC fee schedule.
-UNIONPAY_MARKUP = 0.0          # UnionPay's published rate is a near-mid composite with no built-in markup.
-                               # The real 1–2% cost users see is an issuer-dependent fee added on top
-                               # by the card-issuing bank; not modeled in V1.
-# VISA_ISSUER_MARKUP was removed 2026-05-28: homepage shows pure published
-# rates only (no markup, no fees), so user can compare apples to apples
-# and pick their own card / issuer separately. The stored Visa rate is
-# now Visa's raw `originalValues.fxRateVisa`.
-MASTERCARD_ISSUER_MARKUP = 0.02
-WISE_FEE_DYNAMIC = True        # Wise API returns explicit fee per 1000-CNY reference quote; treat as roughly fixed for V1 display because Wise's real fee scales slightly with amount.
-# Maybank decommissioned 2026-05-28; constant retained for parity with
-# CIMB but unused by V1. See §6 note.
-MAYBANK_TT_FEE_MYR = 10
-CIMB_TT_FEE_MYR = 10           # same reasoning as Maybank: NOT applied to the homepage
-                               # counter-rate comparison (bank spread already in
-                               # Buying TT). fee_estimate=None in V1.
-```
-
-Every constant: source + date + `# TODO recheck-YYYY-MM`.
+Homepage shows each channel's pure published rate. No fees are applied or modeled.
 
 ---
 
