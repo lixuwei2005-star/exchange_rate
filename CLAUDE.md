@@ -78,6 +78,7 @@ Each scraper must return rate as **MYR per 1 CNY**. Reference:
 | CIMB       | MYR per N units foreign (section heading says `Per N Units of Foreign Currency`) | **CNY row Buying TT column ÷ multiplier** | `buying_tt / multiplier` (CNY is in the per-100 table → ÷100) |
 | Public Bank | MYR per N units foreign (multiplier baked into row label, e.g. `100 Chinese Renminbi (Non Trade)`) | **CNY row Buying TT column ÷ multiplier** | `buying_tt / 100` |
 | Midmarket  | Frankfurter `base=CNY` → `rates.MYR`          | direct                                | `rates.MYR` |
+| Midmarket 2 | exchangerate.fun `base=CNY` → `rates.MYR` (same shape as Frankfurter; verifies `response.base` echoes what we asked) | direct | `rates.MYR` |
 
 ### 2.6 Sanity checks (write tests)
 
@@ -229,6 +230,7 @@ See §2 for direction and field selection. URLs below are starting points — ve
 | Channel        | Code         | Source URL                                                                                          | Refresh | Fragility |
 |----------------|--------------|------------------------------------------------------------------------------------------------------|---------|-----------|
 | Mid-market     | `midmarket`  | https://api.frankfurter.dev/v1/latest?from=CNY&to=MYR  (was `frankfurter.app/latest`, 301 since 2026-Q1) | 60 min  | Low |
+| Mid-market 2   | `midmarket2` | https://api.exchangerate.fun/latest?base=CNY (FreeExchangeRateApi aggregator — independent of Frankfurter; lets us cross-check) | 60 min  | Low |
 | Bank of China  | `boc`        | https://www.boc.cn/sourcedb/whpj/                                                                   | 15 min  | Med — HTML may change |
 | UnionPay Intl  | `unionpay`   | GET https://www.unionpayintl.com/upload/jfimg/{YYYYMMDD}.json (static daily JSON)                   | daily 11:30 SGT | Low |
 | Visa           | `visa`       | https://www.visa.com.my/cmsapi/fx/rates (Cloudflare-protected — use curl_cffi `impersonate='chrome124'`) | 30 min  | Med — Cloudflare JS challenge |

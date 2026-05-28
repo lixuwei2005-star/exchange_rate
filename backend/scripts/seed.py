@@ -40,6 +40,18 @@ CHANNELS = [
         "daily_time_cn": None,
     },
     {
+        # Secondary midmarket reference (free-exchange-rate-api aggregator).
+        # Independent source from Frankfurter so we can cross-check / fall
+        # back when one upstream is laggy.
+        "code": "midmarket2",
+        "name_en": "Mid-market 2 (exchangerate.fun)",
+        "name_zh": "中间市场汇率 2",
+        "source_url": "https://api.exchangerate.fun/latest?base=CNY",
+        "schedule_kind": "interval",
+        "interval_minutes": 60,
+        "daily_time_cn": None,
+    },
+    {
         "code": "boc",
         "name_en": "Bank of China",
         "name_zh": "中国银行",
