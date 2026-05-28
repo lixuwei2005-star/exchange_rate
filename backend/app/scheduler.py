@@ -75,9 +75,7 @@ def unschedule_channel(code: str) -> None:
 async def _seed_active_jobs() -> None:
     async with SessionLocal() as session:
         rows = await session.execute(select(Channel).where(Channel.active.is_(True)))
-        for ch in rows.scalars():
-            if ch.code in ALL_SCRAPERS:
-                schedule_channel(ch.code)
+        active_codes = [ch.code for ch in rows.scalars() if ch.code in ALL_SCRAPERS]
 
         # AI cron (CLAUDE.md §10). Uses the SGT timezone configured on the
         # scheduler. Skipped if `ai.enabled` is false or cron is empty.
@@ -95,6 +93,13 @@ async def _seed_active_jobs() -> None:
                     logger.info("scheduled ai:summary on cron %r SGT", cron)
                 except Exception as exc:
                     logger.warning("ai.schedule_cron %r is invalid: %s", cron, exc)
+
+    for code in active_codes:
+        schedule_channel(code)
+        # Also fire once immediately so a backend restart doesn't leave the
+        # homepage showing pre-restart data for up to `interval` minutes
+        # while the IntervalTrigger waits for its first scheduled fire.
+        asyncio.create_task(run_scraper(code, base="CNY", quote="MYR"))
 
 
 async def _ai_summary_job() -> None:
