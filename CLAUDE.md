@@ -76,7 +76,7 @@ Each scraper must return rate as **MYR per 1 CNY**. Reference:
 | Mastercard | Similar to Visa                               | CNY → MYR, then apply markup          | `response_rate * (1 - 0.02)` |
 | Wise       | JSON `{rate}` where 1 source unit = X target  | `source=CNY&target=MYR`               | `response_rate` (already correct) |
 | Maybank    | MYR per N units (N from row label, e.g. `100 Chinese Renminbi`) | **CNY TT Buying column ÷ multiplier** | `tt_buying / multiplier` |
-| CIMB       | MYR per 1 unit foreign                        | CNY TT Buying rate                    | `tt_buy_rate` |
+| CIMB       | MYR per N units foreign (section heading says `Per N Units of Foreign Currency`) | **CNY row Buying TT column ÷ multiplier** | `buying_tt / multiplier` (CNY is in the per-100 table → ÷100) |
 | Midmarket  | Frankfurter `base=CNY` → `rates.MYR`          | direct                                | `rates.MYR` |
 
 ### 2.6 Sanity checks (write tests)
@@ -235,7 +235,7 @@ See §2 for direction and field selection. URLs below are starting points — ve
 | Mastercard     | `mastercard` | https://www.mastercard.co.uk/en-gb/personal/get-support/convert-currency.html                       | 30 min  | Med |
 | Wise           | `wise`       | POST https://api.wise.com/v3/quotes (unauthenticated quote)                                         | 10 min  | Low |
 | Maybank        | `maybank`    | GET https://www.maybank2u.com.my/maybank2u/malaysia/en/personal/rates/forex_rates.page (server-rendered HTML table) | 6 h     | Med (Akamai) |
-| CIMB           | `cimb`       | https://www.cimb.com.my/en/personal/help-support/rates/foreign-exchange-counter-rates.html          | 3 h     | Med |
+| CIMB           | `cimb`       | https://www.cimb.com.my/en/business/help-and-support/rates-charges/forex-rates.html (server-rendered HTML; the Per-100 wholesale table) | 3 h     | Low |
 
 > ⚠️ "Refresh" above is our poll cadence, not how often the source itself publishes. Frankfurter is daily (ECB ~CET 16:00); Wise / banks change intraday; Maybank / CIMB update at most a couple of times per business day. Polling faster than the source updates is harmless (deduplicated by `(channel, fetched_at)` uniqueness conceptually — we store every snapshot but the displayed value just stays the same) but doesn't increase actual freshness.
 
@@ -256,7 +256,9 @@ MAYBANK_TT_FEE_MYR = 10        # approximate; NOT applied to the homepage counte
                                # comparison (the bank's spread is already in tt_buying).
                                # This is the RM TT charge for outbound transfers, kept
                                # as a constant for future use. fee_estimate=None in V1.
-CIMB_TT_FEE_MYR = 10
+CIMB_TT_FEE_MYR = 10           # same reasoning as Maybank: NOT applied to the homepage
+                               # counter-rate comparison (bank spread already in
+                               # Buying TT). fee_estimate=None in V1.
 ```
 
 Every constant: source + date + `# TODO recheck-YYYY-MM`.

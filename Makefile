@@ -1,4 +1,4 @@
-.PHONY: dev backend frontend test lint fmt migrate seed scrape-once scrape summary-now logs deploy fernet-key down clean help
+.PHONY: dev backend frontend test lint fmt migrate seed scrape-once scrape summary-now logs deploy fernet-key down clean help prod prod-down prod-logs prod-backend-rebuild maybank-diag
 
 # Default target: show help.
 help:
@@ -25,6 +25,10 @@ help:
 	@echo "  make logs         docker compose logs -f backend"
 	@echo "  make deploy       ssh OCI, git pull, docker compose up -d --build"
 	@echo "  make fernet-key   generate a new Fernet key (paste into .env)"
+	@echo ""
+	@echo "  --- prod-only (run on the OCI server) ---"
+	@echo "  make prod-backend-rebuild  rebuild + restart ONLY backend (preserves frontend)"
+	@echo "  make maybank-diag          end-to-end Maybank diagnostic (Playwright probe + scrape)"
 
 # ---------------------------------------------------------------------------
 # Dev orchestration
@@ -48,6 +52,17 @@ prod-down:
 
 prod-logs:
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml logs -f --tail=200
+
+# Rebuild + restart ONLY backend; frontend container is left running. Used
+# when iterating on backend code (the Chromium-laden Maybank scraper takes
+# ~5-10 min on the first build because of `playwright install chromium`).
+prod-backend-rebuild:
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build backend
+
+# End-to-end Maybank diagnostic: probe Playwright/Chromium availability +
+# attempt a real scrape, prints a verdict and which decision to make next.
+maybank-diag:
+	docker compose -f docker-compose.yml -f docker-compose.prod.yml exec backend python scripts/diag_maybank.py
 
 # ---------------------------------------------------------------------------
 # Local (non-docker) runs

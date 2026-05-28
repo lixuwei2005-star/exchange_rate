@@ -74,7 +74,9 @@ CHANNELS = [
         "code": "cimb",
         "name_en": "CIMB Bank",
         "name_zh": "联昌国际银行",
-        "source_url": "https://www.cimb.com.my/en/personal/help-support/rates/foreign-exchange-counter-rates.html",
+        "source_url": (
+            "https://www.cimb.com.my/en/business/help-and-support/rates-charges/forex-rates.html"
+        ),
     },
 ]
 
