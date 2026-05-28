@@ -5,7 +5,10 @@ import { api, type LatestRate, type SummaryResponse } from "@/lib/api";
 import { relativeTimeZh } from "@/lib/format";
 import { zhCN } from "@/lib/i18n/zh-CN";
 
-export const revalidate = 300; // ISR 5 min
+// ISR: re-render at most once a minute. Backend scrapers run every 30 min
+// (midmarket/wise) up to 6 h (maybank/cimb), so a 60s ceiling keeps the
+// homepage close to the freshest snapshot without spamming re-renders.
+export const revalidate = 60;
 
 async function safeFetch<T>(promise: Promise<T>, fallback: T): Promise<T> {
   try {
