@@ -77,6 +77,7 @@ Each scraper must return rate as **MYR per 1 CNY**. Reference:
 | Wise       | JSON `{rate}` where 1 source unit = X target  | `source=CNY&target=MYR`               | `response_rate` (already correct) |
 | CIMB       | MYR per N units foreign (section heading says `Per N Units of Foreign Currency`) | **CNY row Buying TT column ÷ multiplier** | `buying_tt / multiplier` (CNY is in the per-100 table → ÷100) |
 | Public Bank | MYR per N units foreign (multiplier baked into row label, e.g. `100 Chinese Renminbi (Non Trade)`) | **CNY row Buying TT column ÷ multiplier** | `buying_tt / 100` |
+| RHB        | MYR per `Unit` foreign; columns `Bank Sell TT/OD \| Bank Buy TT \| Bank Buy OD`; data rows split code+name so they have 1 extra cell vs header | **CNY row Bank Buy TT ÷ Unit** | `bank_buy_tt / 100` (sanity floor widened to 0.45 — RHB's CNY spread is unusually wide) |
 | Midmarket  | Frankfurter `base=CNY` → `rates.MYR`          | direct                                | `rates.MYR` |
 | Midmarket 2 | exchangerate.fun `base=CNY` → `rates.MYR` (same shape as Frankfurter; verifies `response.base` echoes what we asked) | direct | `rates.MYR` |
 | Midmarket 3 | exchangerate-api.com `/v6/{key}/latest/CNY` → `conversion_rates.MYR` (auth via `EXCHANGERATE_API_KEY` env; validates `result=='success'` and `base_code`) | direct | `conversion_rates.MYR` |
@@ -240,6 +241,7 @@ See §2 for direction and field selection. URLs below are starting points — ve
 | Wise           | `wise`       | POST https://api.wise.com/v3/quotes (unauthenticated quote)                                         | 10 min  | Low |
 | CIMB           | `cimb`       | https://www.cimb.com.my/en/business/help-and-support/rates-charges/forex-rates.html (server-rendered HTML; the Per-100 wholesale table) | 3 h     | Low |
 | Public Bank    | `publicbank` | https://www.pbebank.com/en/rates-charges/forex/ (server-rendered HTML; single forex table, multiplier in row label) | 3 h     | Low |
+| RHB            | `rhb`        | https://www.rhbgroup.com/treasury-rates/foreign-exchange/index.html (server-rendered HTML; Cloudflare in front but serves plain GET; `Unit` column + code/name split rows) | 3 h     | Low |
 
 > ⚠️ **Maybank was decommissioned 2026-05-28.** Akamai Bot Manager blocks plain server-side GET (HTTP 403) from OCI's data-center IP range. A Playwright + manual stealth tweaks attempt was implemented and verified end-to-end from OCI; Akamai still served an interstitial instead of the rate table (`'Chinese Renminbi' did not appear within 15s` in the diagnostic). Patchright / paid unblock services (ScrapingBee, ZenRows) were not pursued because CIMB covers the same Malaysian-bank data dimension cleanly. The Playwright-based Maybank scraper lives in git history at commits `f833360..baa596c` if anyone wants to revisit.
 

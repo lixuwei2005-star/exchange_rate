@@ -8,6 +8,7 @@ from app.scrapers.midmarket import MidmarketScraper
 from app.scrapers.midmarket2 import Midmarket2Scraper
 from app.scrapers.midmarket3 import Midmarket3Scraper
 from app.scrapers.publicbank import PublicBankScraper
+from app.scrapers.rhb import RHBScraper
 from app.scrapers.unionpay import UnionPayScraper
 from app.scrapers.visa import VisaScraper
 from app.scrapers.wise import WiseScraper
@@ -28,6 +29,7 @@ ALL_SCRAPERS: dict[str, type[Scraper]] = {
     "wise": WiseScraper,
     "cimb": CIMBScraper,
     "publicbank": PublicBankScraper,
+    "rhb": RHBScraper,
 }
 
 __all__ = [
