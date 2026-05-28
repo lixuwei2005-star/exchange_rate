@@ -11,7 +11,15 @@ class LatestRate(BaseModel):
 
     channel_code: str
     channel_name_zh: str
+    # `rate` is the channel's effective rate (already reflects any baked-in
+    # markup or fee that the channel exposes via its quote — see §2.5 of
+    # CLAUDE.md). Used by the homepage's '你能拿到' column.
     rate: Decimal
+    # `headline_rate` is the channel's advertised pre-fee rate, used by the
+    # pure-rate comparison table. For most channels it equals `rate`; for
+    # Wise (whose stored rate is after-fee) it's the mid-market rate that
+    # Wise quotes — extracted from raw_payload at API time.
+    headline_rate: Decimal
     rate_type: str
     fee_estimate: Decimal | None = None
     fee_currency: str | None = None

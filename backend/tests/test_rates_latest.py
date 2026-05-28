@@ -76,6 +76,8 @@ async def test_rates_latest_returns_only_active_channels_latest_snapshot(session
     assert row["channel_code"] == "midmarket"
     assert row["channel_name_zh"] == "中间价（参考）"
     assert Decimal(row["rate"]) == Decimal("0.66")  # latest, not older
+    # For non-Wise channels, headline_rate == rate.
+    assert Decimal(row["headline_rate"]) == Decimal("0.66")
     assert row["rate_type"] == "midmarket"
     assert isinstance(row["is_stale"], bool)
 
@@ -87,3 +89,34 @@ async def test_rates_latest_empty_when_no_snapshots(session):
         resp = await client.get("/api/rates/latest")
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+@pytest.mark.asyncio
+async def test_rates_latest_wise_headline_extracted_from_raw_payload(session):
+    """For Wise, /api/rates/latest's headline_rate should be the mid-market
+    rate baked into the original Wise quote (raw_payload.rate), NOT the
+    after-fee effective rate we store in `rate`."""
+    session.add(Currency(code="CNY", name_en="Chinese Yuan", name_zh="人民币"))
+    session.add(Currency(code="MYR", name_en="Malaysian Ringgit", name_zh="马来西亚林吉特"))
+    session.add(Channel(code="wise", name_en="Wise", name_zh="Wise", active=True))
+    session.add(
+        RateSnapshot(
+            channel_code="wise",
+            base_currency="CNY",
+            quote_currency="MYR",
+            rate=Decimal("0.57152"),  # effective, after fee
+            rate_type="p2p",
+            raw_payload={"rate": 0.58463, "paymentOptions": []},  # mid-market headline
+            fetched_at=datetime(2026, 5, 28, 4, 0, tzinfo=UTC),
+        )
+    )
+    await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/rates/latest")
+    assert resp.status_code == 200
+    body = resp.json()
+    assert len(body) == 1
+    assert Decimal(body[0]["rate"]) == Decimal("0.57152")
+    assert Decimal(body[0]["headline_rate"]) == Decimal("0.58463")

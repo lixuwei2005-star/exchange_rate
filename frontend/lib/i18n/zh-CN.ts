@@ -17,6 +17,11 @@ export const zhCN = {
   amountUnit: "CNY",
   amountSuffix: "，能换多少 MYR？",
 
+  // Pure rate comparison (above the detailed table)
+  rateOnlyTitle: "纯汇率对比",
+  rateOnlyHint:
+    "只看各家挂牌汇率，不含手续费。Wise 显示其官方挂牌价（= 中间价），便于看出哪些渠道把利润藏在汇率里。",
+
   // Channel table
   tableHeaderChannel: "渠道",
   tableHeaderRate: "汇率（1 MYR = X CNY）",

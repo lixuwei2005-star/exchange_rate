@@ -1,5 +1,6 @@
 import HomeContent from "@/components/public/HomeContent";
 import RateHeadline from "@/components/public/RateHeadline";
+import RateOnlyTable from "@/components/public/RateOnlyTable";
 import SiteTitle from "@/components/public/SiteTitle";
 import { api, type LatestRate, type SummaryResponse } from "@/lib/api";
 import { relativeTimeZh } from "@/lib/format";
@@ -59,6 +60,10 @@ export default async function HomePage() {
       {summary.summary_zh && (
         <p className="mb-8 text-center text-sm italic text-neutral-500">{summary.summary_zh}</p>
       )}
+
+      <section className="mb-8">
+        <RateOnlyTable rows={rates} />
+      </section>
 
       <section className="mb-10 flex-1">
         <HomeContent initialRates={rates} />

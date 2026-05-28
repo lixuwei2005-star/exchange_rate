@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -23,6 +24,34 @@ STALE_THRESHOLD = timedelta(hours=12)
 def _as_utc(dt: datetime) -> datetime:
     """SQLite drops tz info — treat naive datetimes from the DB as UTC."""
     return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+
+
+def _headline_rate_for(snap: RateSnapshot) -> Decimal:
+    """Pre-fee advertised rate for the pure-rate comparison table.
+
+    For most channels the stored rate IS the headline (bank's quoted ask,
+    card network rate after issuer markup, etc.). Wise is the exception:
+    we store the after-fee effective rate, but Wise's actual advertised
+    rate is the mid-market value embedded in the quote response's top
+    level — extract it from raw_payload so the comparison is honest.
+    """
+    if snap.channel_code != "wise":
+        return snap.rate
+    raw = snap.raw_payload if isinstance(snap.raw_payload, dict) else {}
+    direct = raw.get("rate")
+    if direct is not None:
+        try:
+            return Decimal(str(direct))
+        except Exception:
+            pass
+    # reverse_pair fallback shape: raw_payload = {"reverse_payload": {"rate": ...}}
+    rev = raw.get("reverse_payload")
+    if isinstance(rev, dict) and rev.get("rate") is not None:
+        try:
+            return (Decimal("1") / Decimal(str(rev["rate"]))).quantize(Decimal("0.00000001"))
+        except Exception:
+            pass
+    return snap.rate
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -91,6 +120,7 @@ async def rates_latest(
                 channel_code=channel.code,
                 channel_name_zh=channel.name_zh,
                 rate=snap.rate,
+                headline_rate=_headline_rate_for(snap),
                 rate_type=snap.rate_type,
                 fee_estimate=snap.fee_estimate,
                 fee_currency=snap.fee_currency,

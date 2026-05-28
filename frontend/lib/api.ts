@@ -94,7 +94,12 @@ export type HealthResponse = {
 export type LatestRate = {
   channel_code: string;
   channel_name_zh: string;
+  // Effective rate (already includes any baked-in fee/markup) — used for
+  // the '你能拿到' computation in the detailed table.
   rate: string; // decimal as string
+  // Pre-fee advertised rate — used for the pure-rate comparison table.
+  // For most channels equals `rate`; for Wise it's the mid-market headline.
+  headline_rate: string;
   rate_type: string;
   fee_estimate: string | null;
   fee_currency: string | null;
