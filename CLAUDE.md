@@ -228,7 +228,7 @@ See §2 for direction and field selection. URLs below are starting points — ve
 
 | Channel        | Code         | Source URL                                                                                          | Refresh | Fragility |
 |----------------|--------------|------------------------------------------------------------------------------------------------------|---------|-----------|
-| Mid-market     | `midmarket`  | https://api.frankfurter.dev/v1/latest?from=CNY&to=MYR  (was `frankfurter.app/latest`, 301 since 2026-Q1) | 10 min  | Low |
+| Mid-market     | `midmarket`  | https://api.frankfurter.dev/v1/latest?from=CNY&to=MYR  (was `frankfurter.app/latest`, 301 since 2026-Q1) | 60 min  | Low |
 | Bank of China  | `boc`        | https://www.boc.cn/sourcedb/whpj/                                                                   | 15 min  | Med — HTML may change |
 | UnionPay Intl  | `unionpay`   | https://www.unionpayintl.com/cardholderServ/serviceCenter/rate/                                     | 30 min  | High — form POST, session may be needed |
 | Visa           | `visa`       | https://www.visa.com.my/support/consumer/travel-support/exchange-rate-calculator.html               | 30 min  | Med — JSON endpoint |

@@ -34,7 +34,9 @@ scheduler = AsyncIOScheduler(timezone="Asia/Singapore")
 # Polling more often than the source updates is harmless (we just write the
 # same snapshot) but doesn't actually make displayed numbers fresher.
 REFRESH_MINUTES: dict[str, int] = {
-    "midmarket": 10,
+    # Frankfurter publishes ECB rates once a day around CET 16:00; polling
+    # hourly is plenty (worst-case lag = 1 hour after ECB publishes).
+    "midmarket": 60,
     "wise": 10,
     "boc": 15,
     "unionpay": 30,
