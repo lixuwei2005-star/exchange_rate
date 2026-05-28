@@ -71,7 +71,7 @@ Each scraper must return rate as **MYR per 1 CNY**. Reference:
 | Channel    | Native quote                                  | Field for CNY→MYR                     | To stored rate (MYR per CNY) |
 |------------|-----------------------------------------------|---------------------------------------|------------------------------|
 | BOC        | CNY per 100 MYR, 4 columns                    | **现汇卖出价**                          | `100 / 现汇卖出价` |
-| UnionPay   | Returns "1 transCur = X baseCur"              | `transCur=MYR, baseCur=CNY`           | `1 / response_rate` (verify direction at impl) |
+| UnionPay   | Static daily JSON entry `1 transCur = rateData × baseCur` | entry `transCur=MYR, baseCur=CNY` | `1 / rateData` |
 | Visa       | "1 from = X to" via JSON endpoint             | `from=CNY, to=MYR`, then apply markup | `response_rate * (1 - 0.02)` |
 | Mastercard | Similar to Visa                               | CNY → MYR, then apply markup          | `response_rate * (1 - 0.02)` |
 | Wise       | JSON `{rate}` where 1 source unit = X target  | `source=CNY&target=MYR`               | `response_rate` (already correct) |
@@ -230,7 +230,7 @@ See §2 for direction and field selection. URLs below are starting points — ve
 |----------------|--------------|------------------------------------------------------------------------------------------------------|---------|-----------|
 | Mid-market     | `midmarket`  | https://api.frankfurter.dev/v1/latest?from=CNY&to=MYR  (was `frankfurter.app/latest`, 301 since 2026-Q1) | 60 min  | Low |
 | Bank of China  | `boc`        | https://www.boc.cn/sourcedb/whpj/                                                                   | 15 min  | Med — HTML may change |
-| UnionPay Intl  | `unionpay`   | https://www.unionpayintl.com/cardholderServ/serviceCenter/rate/                                     | 30 min  | High — form POST, session may be needed |
+| UnionPay Intl  | `unionpay`   | GET https://www.unionpayintl.com/upload/jfimg/{YYYYMMDD}.json (static daily JSON)                   | daily 11:30 SGT | Low |
 | Visa           | `visa`       | https://www.visa.com.my/support/consumer/travel-support/exchange-rate-calculator.html               | 30 min  | Med — JSON endpoint |
 | Mastercard     | `mastercard` | https://www.mastercard.co.uk/en-gb/personal/get-support/convert-currency.html                       | 30 min  | Med |
 | Wise           | `wise`       | POST https://api.wise.com/v3/quotes (unauthenticated quote)                                         | 10 min  | Low |
@@ -246,7 +246,9 @@ See §2 for direction and field selection. URLs below are starting points — ve
 # All values verified 2026-05-27. Add # TODO recheck-YYYY-MM when adding new constants.
 
 BOC_TT_FEE_CNY = 50            # BOC TT outbound flat fee. Source: BOC fee schedule.
-UNIONPAY_MARKUP = 0.0          # Markup already baked into UnionPay's quote.
+UNIONPAY_MARKUP = 0.0          # UnionPay's published rate is a near-mid composite with no built-in markup.
+                               # The real 1–2% cost users see is an issuer-dependent fee added on top
+                               # by the card-issuing bank; not modeled in V1.
 VISA_ISSUER_MARKUP = 0.02      # ~2% conservative; real value varies by issuer.
 MASTERCARD_ISSUER_MARKUP = 0.02
 WISE_FEE_DYNAMIC = True        # Wise API returns explicit fee per 1000-CNY reference quote; treat as roughly fixed for V1 display because Wise's real fee scales slightly with amount.

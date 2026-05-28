@@ -16,9 +16,20 @@ from app.schemas.public import HealthResponse, HistoryPoint, LatestRate, Summary
 
 router = APIRouter(prefix="/api", tags=["public"])
 
-# A snapshot is considered "stale" if older than this. Chosen as 1.5x the
-# slowest configured refresh (6h → 9h, rounded up to 12h). Tightens in Phase 9.
+# A snapshot is considered "stale" if its last_success is older than this.
+# Default tracks the slowest intraday channel; daily channels need a longer
+# window so a single missed wall-clock fire doesn't flip them to 'stale'.
 STALE_THRESHOLD = timedelta(hours=12)
+PER_CHANNEL_STALE_THRESHOLD: dict[str, timedelta] = {
+    # UnionPay publishes once per day around 11:00 Beijing time and our
+    # cron fires at 11:30; 30 h covers the full day-to-day window plus
+    # margin for upstream delays.
+    "unionpay": timedelta(hours=30),
+}
+
+
+def _stale_threshold_for(channel_code: str) -> timedelta:
+    return PER_CHANNEL_STALE_THRESHOLD.get(channel_code, STALE_THRESHOLD)
 
 
 def _as_utc(dt: datetime) -> datetime:
@@ -64,7 +75,7 @@ async def health(session: Annotated[AsyncSession, Depends(get_session)]) -> Heal
     for ch in result.scalars():
         if ch.last_success_at is None:
             channels[ch.code] = "stale"
-        elif now - _as_utc(ch.last_success_at) > STALE_THRESHOLD:
+        elif now - _as_utc(ch.last_success_at) > _stale_threshold_for(ch.code):
             channels[ch.code] = "stale"
         else:
             channels[ch.code] = "fresh"
@@ -125,7 +136,7 @@ async def rates_latest(
                 fee_estimate=snap.fee_estimate,
                 fee_currency=snap.fee_currency,
                 fetched_at=fetched_at,
-                is_stale=(now - fetched_at) > STALE_THRESHOLD,
+                is_stale=(now - fetched_at) > _stale_threshold_for(channel.code),
             )
         )
     out.sort(key=lambda r: r.channel_code)

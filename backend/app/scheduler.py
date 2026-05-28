@@ -39,25 +39,43 @@ REFRESH_MINUTES: dict[str, int] = {
     "midmarket": 60,
     "wise": 10,
     "boc": 15,
-    "unionpay": 30,
     "visa": 30,
     "mastercard": 30,
     "maybank": 180,
     "cimb": 180,
+    # NOTE: unionpay is NOT here on purpose — it gets a daily cron (see
+    # CHANNEL_CRONS below) because its source is a once-per-day static
+    # file named by Beijing date.
+}
+
+# Channels that prefer a daily cron over an IntervalTrigger because the
+# upstream publishes at a known wall-clock time. Each value is a CronTrigger.
+CHANNEL_CRONS: dict[str, CronTrigger] = {
+    # UnionPay locks MYR rate at 11:00 Beijing time; we fetch at 11:30 to
+    # give a comfortable margin. Asia/Shanghai and Asia/Singapore share the
+    # same UTC offset, but be explicit about the wall clock the source uses.
+    "unionpay": CronTrigger(hour=11, minute=30, timezone="Asia/Shanghai"),
 }
 
 
 def schedule_channel(code: str) -> None:
     """Add (or replace) a scheduled job for one channel. Used at startup and
-    by the admin "toggle active" endpoint."""
-    minutes = REFRESH_MINUTES.get(code, 60)
+    by the admin "toggle active" endpoint. Picks a cron trigger for channels
+    listed in CHANNEL_CRONS, an IntervalTrigger otherwise."""
 
     async def _job() -> None:
         await run_scraper(code, base="CNY", quote="MYR")
 
+    trigger: CronTrigger | IntervalTrigger
+    if code in CHANNEL_CRONS:
+        trigger = CHANNEL_CRONS[code]
+    else:
+        minutes = REFRESH_MINUTES.get(code, 60)
+        trigger = IntervalTrigger(minutes=minutes, jitter=30)
+
     scheduler.add_job(
         _job,
-        trigger=IntervalTrigger(minutes=minutes, jitter=30),
+        trigger=trigger,
         id=f"scrape:{code}",
         replace_existing=True,
         max_instances=1,

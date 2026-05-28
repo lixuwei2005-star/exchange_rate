@@ -42,7 +42,7 @@ CHANNELS = [
         "code": "unionpay",
         "name_en": "UnionPay International",
         "name_zh": "银联国际",
-        "source_url": "https://www.unionpayintl.com/cardholderServ/serviceCenter/rate/",
+        "source_url": "https://www.unionpayintl.com/upload/jfimg/",
     },
     {
         "code": "visa",

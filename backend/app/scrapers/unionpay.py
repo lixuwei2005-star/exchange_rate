@@ -1,82 +1,130 @@
 from __future__ import annotations
 
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import ClassVar
+from zoneinfo import ZoneInfo
 
 import httpx
 
-from app.scrapers._common import make_client, to_decimal
+from app.scrapers._common import make_client
 from app.scrapers.base import Scraper, ScraperError, ScrapeResult
 
 
 class UnionPayScraper(Scraper):
-    """UnionPay International cross-border rate service.
+    """UnionPay International cross-border rate, published as a static daily
+    JSON file named by Beijing date — no auth, no form POST, no cookies.
 
-    The endpoint accepts `transCur` (currency being paid in) and `baseCur`
-    (target settlement currency), and replies with "1 transCur = X baseCur"
-    via a JSON response. Per CLAUDE.md §2.5 we query with
-        transCur = MYR (foreign currency)
-        baseCur  = CNY
-    and the response gives "1 MYR = X CNY". Our stored direction is
-    MYR per 1 CNY, so:  rate = 1 / X.
+        GET https://www.unionpayintl.com/upload/jfimg/{YYYYMMDD}.json
 
-    The exact JSON shape is not formally documented; this scraper expects
-    either {"data": [{"exchangeRate": "1.5xxx", ...}]} or a top-level
-    {"exchangeRate": "..."}. If the live response shape differs, raise so
-    an admin can iterate on the parser without silently storing junk.
+    The response has the shape:
+        {"exchangeRateJson": [{"transCur": "MYR", "baseCur": "CNY",
+                               "rateData": 1.71878002}, ...thousands more...]}
+
+    Semantics: `1 transCur = rateData × baseCur`. For our CNY-billed card
+    spending MYR in Malaysia we want the entry where transCur=MYR,
+    baseCur=CNY — that value is CNY per 1 MYR. Our storage convention is
+    MYR per 1 CNY, so we invert: stored_rate = 1 / rateData.
+
+    Fee model (CLAUDE.md §6): UnionPay's published rate is a near-mid
+    composite with no built-in markup. The real 1–2% cost users see is an
+    issuer-dependent fee added on top, which we do NOT model in V1, so
+    fee_estimate is None.
+
+    Date logic:
+      - MYR is a non-European currency; UnionPay locks its rate at 11:00
+        Beijing time. Scrape after that.
+      - Today's file (Asia/Shanghai date) may 404 if not published yet, so
+        on 404 step back one day, up to 3 days back.
     """
 
     channel_code: ClassVar[str] = "unionpay"
     timeout_seconds: ClassVar[int] = 20
-    BASE_URL: ClassVar[str] = "https://www.unionpayintl.com/upload/jfimg/exchangeRate.txt"
+    URL_TEMPLATE: ClassVar[str] = "https://www.unionpayintl.com/upload/jfimg/{date}.json"
+    MAX_DAYS_BACK: ClassVar[int] = 3
+    TIMEZONE: ClassVar[ZoneInfo] = ZoneInfo("Asia/Shanghai")
 
     async def fetch(self, base: str, quote: str) -> ScrapeResult:
         if base != "CNY":
             raise ScraperError(f"unionpay: only CNY base supported (got {base})")
-        try:
-            async with make_client(self.timeout_seconds) as client:
-                # NOTE: UnionPay's actual endpoint varies. The .txt above is a
-                # known mirror that returns the latest rate table as a JSON-ish
-                # blob. If the live response shape diverges, ScraperError
-                # surfaces in /admin/logs.
-                resp = await client.get(self.BASE_URL)
-                resp.raise_for_status()
-                payload = resp.json()
-        except (httpx.HTTPError, ValueError) as exc:
-            raise ScraperError(f"unionpay: HTTP error: {exc}") from exc
 
-        cny_per_quote = self._extract_rate(payload, quote)
-        if cny_per_quote is None:
-            raise ScraperError(f"unionpay: rate for {quote} not found: {payload!r}")
+        payload, file_date = await self._fetch_with_fallback()
+        match = self._find_entry(payload, trans_cur=quote, base_cur=base)
+        if match is None:
+            raise ScraperError(
+                f"unionpay: no entry with transCur={quote!r} baseCur={base!r} "
+                f"in {file_date} file (total entries: "
+                f"{len(payload.get('exchangeRateJson', []))})"
+            )
+
+        rate_data = match.get("rateData")
+        if rate_data is None:
+            raise ScraperError(f"unionpay: matched entry has no rateData: {match!r}")
+
         try:
-            x = to_decimal(cny_per_quote)
+            cny_per_quote = Decimal(str(rate_data))
         except Exception as exc:
-            raise ScraperError(f"unionpay: cannot parse rate {cny_per_quote!r}: {exc}") from exc
-        if x <= 0:
-            raise ScraperError(f"unionpay: non-positive rate {x}")
-        rate = (Decimal("1") / x).quantize(Decimal("0.00000001"))
+            raise ScraperError(f"unionpay: cannot parse rateData {rate_data!r}: {exc}") from exc
+        if cny_per_quote <= 0:
+            raise ScraperError(f"unionpay: non-positive rateData {cny_per_quote}")
+
+        rate = (Decimal("1") / cny_per_quote).quantize(Decimal("0.00000001"))
         self._sanity_check(rate)
+
         return ScrapeResult(
             base_currency=base,
             quote_currency=quote,
             rate=rate,
             rate_type="card_network",
-            raw_payload={"cny_per_quote": str(x), "raw": payload},
+            raw_payload={"file_date": file_date, "entry": match},
+            # See class docstring: UnionPay's quote has no built-in markup, the
+            # 1-2% real cost is issuer-dependent and not modeled in V1.
+            fee_estimate=None,
+            fee_currency=None,
         )
 
-    def _extract_rate(self, payload: object, quote: str) -> object | None:
-        """Tolerate several plausible shapes."""
-        if isinstance(payload, dict):
-            # shape A: {"data": [{"transCur":"MYR","exchangeRate":"1.5"}, ...]}
-            data = payload.get("data")
-            if isinstance(data, list):
-                for row in data:
-                    if isinstance(row, dict) and row.get("transCur") == quote:
-                        return row.get("exchangeRate") or row.get("rate")
-            # shape B: {"MYR": "1.5xx"} or {"rates": {"MYR": "..."}}
-            if quote in payload:
-                return payload.get(quote)
-            rates = payload.get("rates")
-            if isinstance(rates, dict) and quote in rates:
-                return rates[quote]
+    async def _fetch_with_fallback(self) -> tuple[dict, str]:
+        """GET today's file in Asia/Shanghai, falling back day-by-day on 404
+        for up to MAX_DAYS_BACK days. Returns (parsed_json, YYYYMMDD_used)."""
+        today_cn = datetime.now(self.TIMEZONE).date()
+        last_404: str | None = None
+        async with make_client(self.timeout_seconds) as client:
+            for delta in range(self.MAX_DAYS_BACK + 1):
+                date_str = (today_cn - timedelta(days=delta)).strftime("%Y%m%d")
+                url = self.URL_TEMPLATE.format(date=date_str)
+                try:
+                    resp = await client.get(url)
+                except httpx.HTTPError as exc:
+                    raise ScraperError(f"unionpay: HTTP error fetching {url}: {exc}") from exc
+                if resp.status_code == 404:
+                    last_404 = date_str
+                    continue
+                if resp.status_code != 200:
+                    raise ScraperError(f"unionpay: unexpected status {resp.status_code} for {url}")
+                try:
+                    payload = resp.json()
+                except ValueError as exc:
+                    raise ScraperError(f"unionpay: invalid JSON in {url}: {exc}") from exc
+                if not isinstance(payload, dict):
+                    raise ScraperError(
+                        f"unionpay: expected object response from {url}, got "
+                        f"{type(payload).__name__}"
+                    )
+                return payload, date_str
+        raise ScraperError(
+            f"unionpay: all {self.MAX_DAYS_BACK + 1} candidate dates returned 404 "
+            f"(latest tried: {last_404})"
+        )
+
+    def _find_entry(self, payload: dict, *, trans_cur: str, base_cur: str) -> dict | None:
+        arr = payload.get("exchangeRateJson")
+        if not isinstance(arr, list):
+            return None
+        for entry in arr:
+            if (
+                isinstance(entry, dict)
+                and entry.get("transCur") == trans_cur
+                and entry.get("baseCur") == base_cur
+            ):
+                return entry
         return None
