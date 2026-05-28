@@ -123,11 +123,20 @@ class WiseScraper(Scraper):
 
         return min(usable, key=_fee_of)
 
-    async def _request_quote(self, client: httpx.AsyncClient, *, source: str, target: str) -> dict:
+    async def _request_quote(
+        self,
+        client: httpx.AsyncClient,
+        *,
+        source: str,
+        target: str,
+        source_amount: int | float | None = None,
+    ) -> dict:
         request_payload = {
             "sourceCurrency": source,
             "targetCurrency": target,
-            "sourceAmount": self.REFERENCE_SOURCE_AMOUNT,
+            "sourceAmount": (
+                source_amount if source_amount is not None else self.REFERENCE_SOURCE_AMOUNT
+            ),
         }
         try:
             resp = await client.post(self.BASE_URL, json=request_payload)
@@ -173,3 +182,54 @@ class WiseScraper(Scraper):
             return to_decimal(value)
         except Exception as exc:
             raise ScraperError(f"wise: cannot parse {what}: {exc}") from exc
+
+    async def quote_for_amount(
+        self, base: str, quote: str, source_amount: float
+    ) -> dict[str, object]:
+        """On-demand Wise quote for a specific source amount. Not persisted —
+        used by the /api/quote/wise endpoint so the homepage's fee column can
+        update as the user changes their input. Returns:
+            {
+                "source_amount": Decimal,    # what we asked for
+                "target_amount": Decimal,    # what Wise says you'll receive
+                "rate": Decimal,             # target/source (effective)
+                "fee": Decimal,              # fee in source_currency
+                "fee_currency": str,         # source currency code
+            }
+        """
+        if source_amount <= 0:
+            raise ScraperError(f"wise: source_amount must be > 0, got {source_amount}")
+        async with make_client(self.timeout_seconds) as client:
+            payload = await self._request_quote(
+                client, source=base, target=quote, source_amount=source_amount
+            )
+
+        option = self._select_option(payload)
+        if (
+            option is None
+            or option.get("sourceAmount") is None
+            or option.get("targetAmount") is None
+        ):
+            raise ScraperError(f"wise: no usable paymentOption with amounts: {payload!r}")
+
+        src = self._parse_decimal(option["sourceAmount"], "sourceAmount")
+        tgt = self._parse_decimal(option["targetAmount"], "targetAmount")
+        if src <= 0:
+            raise ScraperError(f"wise: non-positive sourceAmount {src}")
+        rate = (tgt / src).quantize(Decimal("0.00000001"))
+
+        fee_total = Decimal("0")
+        fee = option.get("fee")
+        if isinstance(fee, dict) and fee.get("total") is not None:
+            try:
+                fee_total = to_decimal(fee.get("total"))
+            except Exception as exc:
+                raise ScraperError(f"wise: cannot parse fee: {exc}") from exc
+
+        return {
+            "source_amount": src,
+            "target_amount": tgt,
+            "rate": rate,
+            "fee": fee_total,
+            "fee_currency": base,
+        }

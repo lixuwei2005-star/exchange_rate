@@ -12,7 +12,15 @@ from app.db import get_session
 from app.models.ai_summary import AISummary
 from app.models.channel import Channel
 from app.models.rate_snapshot import RateSnapshot
-from app.schemas.public import HealthResponse, HistoryPoint, LatestRate, SummaryResponse
+from app.schemas.public import (
+    HealthResponse,
+    HistoryPoint,
+    LatestRate,
+    SummaryResponse,
+    WiseQuoteResponse,
+)
+from app.scrapers.base import ScraperError
+from app.scrapers.wise import WiseScraper
 
 router = APIRouter(prefix="/api", tags=["public"])
 
@@ -161,6 +169,29 @@ async def rates_history(
         # keeping the last (latest within day) thanks to ascending order
         by_day[day] = s
     return [HistoryPoint(date=d, rate=s.rate) for d, s in sorted(by_day.items())]
+
+
+@router.get("/quote/wise", response_model=WiseQuoteResponse)
+async def quote_wise(
+    amount: float = Query(..., gt=0, le=1_000_000),
+    base: str = Query("CNY"),
+    quote: str = Query("MYR"),
+) -> WiseQuoteResponse:
+    """On-demand Wise quote for an arbitrary source amount. Used by the
+    homepage so the '手续费' column updates as the user types — Wise's fee
+    has a large fixed component (≈19 CNY for CNY→MYR) so a single 1000-CNY
+    reference snapshot misrepresents the fee at other amounts."""
+    try:
+        result = await WiseScraper().quote_for_amount(base, quote, amount)
+    except ScraperError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return WiseQuoteResponse(
+        source_amount=result["source_amount"],  # type: ignore[arg-type]
+        target_amount=result["target_amount"],  # type: ignore[arg-type]
+        rate=result["rate"],  # type: ignore[arg-type]
+        fee=result["fee"],  # type: ignore[arg-type]
+        fee_currency=str(result["fee_currency"]),
+    )
 
 
 @router.get("/summary", response_model=SummaryResponse)

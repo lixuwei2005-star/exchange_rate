@@ -21,6 +21,10 @@ class LatestRate(BaseModel):
     # Wise quotes — extracted from raw_payload at API time.
     headline_rate: Decimal
     rate_type: str
+    # Absolute fee at the channel's reference quote amount, mostly useful as
+    # a static fallback. Wise's fee has a sizable fixed component, so the
+    # homepage queries /api/quote/wise for the user's actual amount instead
+    # of relying on this snapshot value.
     fee_estimate: Decimal | None = None
     fee_currency: str | None = None
     fetched_at: datetime
@@ -41,3 +45,13 @@ class SummaryResponse(BaseModel):
 class HealthResponse(BaseModel):
     ok: bool
     channels: dict[str, str]  # channel_code -> "fresh" | "stale"
+
+
+class WiseQuoteResponse(BaseModel):
+    """On-demand Wise quote for an arbitrary source amount."""
+
+    source_amount: Decimal
+    target_amount: Decimal
+    rate: Decimal  # MYR per 1 CNY, after Wise fee
+    fee: Decimal  # in source currency
+    fee_currency: str

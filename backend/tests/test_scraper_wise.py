@@ -179,6 +179,37 @@ async def test_wise_empty_payment_options_falls_back_to_top_level_rate():
 
 @pytest.mark.asyncio
 @respx.mock
+async def test_wise_quote_for_amount_returns_on_demand_quote():
+    """quote_for_amount sends the user's actual amount to Wise so the fee
+    column on the homepage reflects reality (Wise's fee is fixed + variable,
+    so it's NOT proportional to amount)."""
+    # Wise quote at sourceAmount=500 → returns 22.47 CNY fee for that amount
+    custom_options = [
+        {
+            "payIn": "BANK_TRANSFER",
+            "payOut": "BANK_TRANSFER",
+            "sourceAmount": 500.00,
+            "targetAmount": 282.65,
+            "sourceCurrency": "CNY",
+            "targetCurrency": "MYR",
+            "fee": {"total": 22.47},
+        },
+    ]
+    respx.post(WISE_URL).mock(
+        return_value=httpx.Response(200, json=quote_payload(payment_options=custom_options))
+    )
+
+    result = await WiseScraper().quote_for_amount("CNY", "MYR", 500)
+    assert result["source_amount"] == Decimal("500.00")
+    assert result["target_amount"] == Decimal("282.65")
+    assert result["fee"] == Decimal("22.47")
+    assert result["fee_currency"] == "CNY"
+    expected_rate = (Decimal("282.65") / Decimal("500.00")).quantize(Decimal("0.00000001"))
+    assert result["rate"] == expected_rate
+
+
+@pytest.mark.asyncio
+@respx.mock
 async def test_wise_reverse_pair_contingency_when_primary_http_fails():
     reverse = quote_payload(
         rate=1.7065,

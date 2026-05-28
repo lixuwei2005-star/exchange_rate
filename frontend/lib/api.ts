@@ -101,6 +101,9 @@ export type LatestRate = {
   // For most channels equals `rate`; for Wise it's the mid-market headline.
   headline_rate: string;
   rate_type: string;
+  // Absolute fee at the channel's reference quote. Static fallback only —
+  // for Wise the homepage queries /api/quote/wise with the user's actual
+  // amount to get an accurate fee (Wise's fee has a sizable fixed part).
   fee_estimate: string | null;
   fee_currency: string | null;
   fetched_at: string; // ISO
@@ -116,6 +119,14 @@ export type SummaryResponse = {
   summary_zh: string | null;
   generated_at: string | null;
   model_used: string | null;
+};
+
+export type WiseQuoteResponse = {
+  source_amount: string;
+  target_amount: string;
+  rate: string;
+  fee: string;
+  fee_currency: string;
 };
 
 export type AdminChannel = {
@@ -170,6 +181,8 @@ export const api = {
     ),
   summary: (base = "CNY", quote = "MYR") =>
     apiFetch<SummaryResponse>(`/api/summary?base=${base}&quote=${quote}`),
+  quoteWise: (amount: number, base = "CNY", quote = "MYR") =>
+    apiFetch<WiseQuoteResponse>(`/api/quote/wise?amount=${amount}&base=${base}&quote=${quote}`),
 
   admin: {
     me: (cookieHeader?: string) =>

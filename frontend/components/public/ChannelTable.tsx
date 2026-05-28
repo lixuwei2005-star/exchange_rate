@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import type { LatestRate } from "@/lib/api";
+import { api, type LatestRate, type WiseQuoteResponse } from "@/lib/api";
 import { displayCnyPerMyr, feeDisplay, grossCnyToMyr, relativeTimeZh } from "@/lib/format";
 import { zhCN } from "@/lib/i18n/zh-CN";
 
@@ -13,19 +13,61 @@ type Props = {
   amountCny: number;
 };
 
+const NUMBER_FMT = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 2,
+  minimumFractionDigits: 0,
+});
+
 export default function ChannelTable({ rows, amountCny }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("receive");
   const [desc, setDesc] = useState(true);
+  // Wise's fee has a sizable fixed component (≈19 CNY base + ~0.6% variable),
+  // so a static snapshot value is wrong for amounts != 1000. Re-quote against
+  // the live Wise endpoint whenever the user's amount changes.
+  const [wiseQuote, setWiseQuote] = useState<WiseQuoteResponse | null>(null);
+  const [wiseFor, setWiseFor] = useState<number | null>(null); // the amount the cached quote was for
+
+  useEffect(() => {
+    // Only re-quote if the homepage rows include an active Wise row.
+    const hasWise = rows.some((r) => r.channel_code === "wise" && !r.is_stale);
+    if (!hasWise || amountCny <= 0) return;
+    let cancelled = false;
+    api
+      .quoteWise(amountCny)
+      .then((q) => {
+        if (!cancelled) {
+          setWiseQuote(q);
+          setWiseFor(amountCny);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setWiseQuote(null);
+          setWiseFor(null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [amountCny, rows]);
 
   const enriched = useMemo(() => {
     return rows.map((r) => {
-      // '你能拿到' is now the pure rate * amount — fees are shown in their
-      // own column and NOT subtracted here (per UX decision: simpler, more
-      // honest, fewer hidden assumptions).
-      const myr = r.is_stale ? null : grossCnyToMyr(amountCny, r.rate);
+      // '你能拿到' is the pure rate * amount (no fee subtraction).
+      // For Wise, prefer the freshly-quoted target_amount when we have one
+      // for the current amount — it's already net-of-fee at exactly that
+      // input, more accurate than amount * stored_effective_rate.
+      let myr: number | null = null;
+      if (!r.is_stale) {
+        if (r.channel_code === "wise" && wiseQuote && wiseFor === amountCny) {
+          myr = parseFloat(wiseQuote.target_amount);
+        } else {
+          myr = grossCnyToMyr(amountCny, r.rate);
+        }
+      }
       return { ...r, myr };
     });
-  }, [rows, amountCny]);
+  }, [rows, amountCny, wiseQuote, wiseFor]);
 
   const sorted = useMemo(() => {
     const arr = [...enriched];
@@ -49,6 +91,17 @@ export default function ChannelTable({ rows, amountCny }: Props) {
       setSortKey(k);
       setDesc(true);
     }
+  }
+
+  /** Fee for one row, with the live Wise quote applied when available. */
+  function feeFor(r: LatestRate): string {
+    if (r.channel_code === "wise" && wiseQuote && wiseFor === amountCny) {
+      const f = parseFloat(wiseQuote.fee);
+      if (Number.isFinite(f) && f > 0) {
+        return `${NUMBER_FMT.format(f)} ${wiseQuote.fee_currency}`;
+      }
+    }
+    return feeDisplay(r);
   }
 
   return (
@@ -90,7 +143,7 @@ export default function ChannelTable({ rows, amountCny }: Props) {
               <td className="px-4 py-3 text-right font-medium tabular-nums">
                 {r.is_stale ? zhCN.unavailable : r.myr?.toFixed(2)}
               </td>
-              <td className="px-4 py-3 text-right text-neutral-600">{feeDisplay(r)}</td>
+              <td className="px-4 py-3 text-right text-neutral-600">{feeFor(r)}</td>
               <td className="px-4 py-3 text-right text-xs text-neutral-400">
                 {r.is_stale ? zhCN.unavailable : relativeTimeZh(r.fetched_at)}
               </td>
