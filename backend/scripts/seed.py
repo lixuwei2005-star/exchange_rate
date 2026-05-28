@@ -66,7 +66,9 @@ CHANNELS = [
         "code": "maybank",
         "name_en": "Maybank",
         "name_zh": "马来亚银行",
-        "source_url": "https://www.maybank2u.com.my/foreign-exchange-rates",
+        "source_url": (
+            "https://www.maybank2u.com.my/maybank2u/malaysia/en/personal/rates/forex_rates.page"
+        ),
     },
     {
         "code": "cimb",
