@@ -45,7 +45,6 @@ export default async function HomePage() {
       <header className="mb-8 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <div>
           <SiteTitle />
-          <p className="mt-1 text-sm text-neutral-500">{zhCN.siteTagline}</p>
         </div>
         {newestRate && (
           <span className="text-xs text-neutral-400">

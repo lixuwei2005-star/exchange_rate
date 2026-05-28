@@ -2,6 +2,8 @@ import type { LatestRate } from "@/lib/api";
 import { displayCnyPerMyr } from "@/lib/format";
 import { zhCN } from "@/lib/i18n/zh-CN";
 
+import ChannelLogo from "./ChannelLogo";
+
 /**
  * Pure-rate comparison: each channel's advertised pre-fee rate, sorted
  * with the best (lowest CNY per MYR) on top. Wise's row uses its mid-market
@@ -49,7 +51,12 @@ export default function RateOnlyTable({ rows }: { rows: LatestRate[] }) {
         <tbody>
           {sorted.map((r) => (
             <tr key={r.channel_code} className="border-t border-neutral-100">
-              <td className="px-4 py-3">{r.channel_name_zh}</td>
+              <td className="px-4 py-3">
+                <span className="flex items-center gap-2.5">
+                  {r.channel_name_zh}
+                  <ChannelLogo code={r.channel_code} />
+                </span>
+              </td>
               <td className="px-4 py-3 text-right font-medium tabular-nums">
                 {displayCnyPerMyr(r.headline_rate)}
               </td>
