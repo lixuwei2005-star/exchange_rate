@@ -32,8 +32,8 @@ CHANNELS = [
     # (UTC+8) — the upstream sources publish on Beijing wall-clock.
     {
         "code": "midmarket",
-        "name_en": "Mid-market (Frankfurter)",
-        "name_zh": "中间市场汇率",
+        "name_en": "Mid-market 1 (Frankfurter)",
+        "name_zh": "中间市场汇率 1",
         "source_url": "https://api.frankfurter.dev/v1/latest?from=CNY&to=MYR",
         "schedule_kind": "interval",
         "interval_minutes": 60,

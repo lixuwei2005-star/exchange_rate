@@ -15,12 +15,23 @@ export default function RateOnlyTable({ rows }: { rows: LatestRate[] }) {
   const active = rows.filter((r) => !r.is_stale && parseFloat(r.headline_rate) > 0);
   if (active.length === 0) return null;
 
-  // headline_rate is MYR/CNY. Higher MYR/CNY = better for the customer
-  // exchanging CNY → MYR. Displayed as `1 MYR = X CNY`, where X = 1/rate;
-  // sorting by displayed CNY/MYR ascending == sorting by MYR/CNY descending.
-  const sorted = [...active].sort(
-    (a, b) => parseFloat(b.headline_rate) - parseFloat(a.headline_rate),
-  );
+  // The three mid-market references are pinned to the bottom in a fixed
+  // 1→2→3 order (they're reference values, not channels you actually use).
+  // Everything else floats above them. headline_rate is MYR/CNY: higher
+  // MYR/CNY = better for the customer exchanging CNY → MYR. Displayed as
+  // `1 MYR = X CNY`, where X = 1/rate; sorting by displayed CNY/MYR ascending
+  // == sorting by MYR/CNY descending.
+  const midmarketRank: Record<string, number> = {
+    midmarket: 1,
+    midmarket2: 2,
+    midmarket3: 3,
+  };
+  const sorted = [...active].sort((a, b) => {
+    const ra = midmarketRank[a.channel_code] ?? 0;
+    const rb = midmarketRank[b.channel_code] ?? 0;
+    if (ra || rb) return ra - rb;
+    return parseFloat(b.headline_rate) - parseFloat(a.headline_rate);
+  });
 
   return (
     <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
