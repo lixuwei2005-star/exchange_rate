@@ -5,6 +5,7 @@ from app.scrapers.boc import BOCScraper
 from app.scrapers.cimb import CIMBScraper
 from app.scrapers.mastercard import MastercardScraper
 from app.scrapers.midmarket import MidmarketScraper
+from app.scrapers.publicbank import PublicBankScraper
 from app.scrapers.unionpay import UnionPayScraper
 from app.scrapers.visa import VisaScraper
 from app.scrapers.wise import WiseScraper
@@ -22,6 +23,7 @@ ALL_SCRAPERS: dict[str, type[Scraper]] = {
     "mastercard": MastercardScraper,
     "wise": WiseScraper,
     "cimb": CIMBScraper,
+    "publicbank": PublicBankScraper,
 }
 
 __all__ = [

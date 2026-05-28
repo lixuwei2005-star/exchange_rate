@@ -26,44 +26,67 @@ CURRENCIES = [
 ]
 
 CHANNELS = [
+    # Each entry carries its default schedule for first-insert. Admin can
+    # change `schedule_kind` / `interval_minutes` / `daily_time_cn` later
+    # from /admin/channels without redeploying. Times are Asia/Shanghai
+    # (UTC+8) — the upstream sources publish on Beijing wall-clock.
     {
         "code": "midmarket",
         "name_en": "Mid-market (Frankfurter)",
         "name_zh": "中间市场汇率",
         "source_url": "https://api.frankfurter.dev/v1/latest?from=CNY&to=MYR",
+        "schedule_kind": "interval",
+        "interval_minutes": 60,
+        "daily_time_cn": None,
     },
     {
         "code": "boc",
         "name_en": "Bank of China",
         "name_zh": "中国银行",
         "source_url": "https://www.boc.cn/sourcedb/whpj/",
+        "schedule_kind": "interval",
+        "interval_minutes": 15,
+        "daily_time_cn": None,
     },
     {
         "code": "unionpay",
         "name_en": "UnionPay International",
         "name_zh": "银联国际",
         "source_url": "https://www.unionpayintl.com/upload/jfimg/",
+        # UnionPay locks the MYR rate at 11:00 Beijing; we fetch at 11:30.
+        "schedule_kind": "daily",
+        "interval_minutes": None,
+        "daily_time_cn": "11:30",
     },
     {
         "code": "visa",
         "name_en": "Visa",
         "name_zh": "Visa",
         "source_url": "https://www.visa.com.my/support/consumer/travel-support/exchange-rate-calculator.html",
+        "schedule_kind": "interval",
+        "interval_minutes": 30,
+        "daily_time_cn": None,
     },
     {
         "code": "mastercard",
         "name_en": "Mastercard",
         "name_zh": "万事达卡",
         "source_url": "https://www.mastercard.co.uk/en-gb/personal/get-support/convert-currency.html",
+        "schedule_kind": "interval",
+        "interval_minutes": 30,
+        "daily_time_cn": None,
     },
     {
         "code": "wise",
         "name_en": "Wise",
         "name_zh": "Wise",
         "source_url": "https://api.wise.com/v1/rates?source=CNY&target=MYR",
+        "schedule_kind": "interval",
+        "interval_minutes": 10,
+        "daily_time_cn": None,
     },
     # Maybank decommissioned 2026-05-28: Akamai blocks OCI; see CLAUDE.md §6.
-    # If you re-add it, also restore the scraper + REFRESH_MINUTES entry.
+    # If you re-add it, also restore the scraper + default schedule entry.
     {
         "code": "cimb",
         "name_en": "CIMB Bank",
@@ -71,6 +94,18 @@ CHANNELS = [
         "source_url": (
             "https://www.cimb.com.my/en/business/help-and-support/rates-charges/forex-rates.html"
         ),
+        "schedule_kind": "interval",
+        "interval_minutes": 180,
+        "daily_time_cn": None,
+    },
+    {
+        "code": "publicbank",
+        "name_en": "Public Bank Berhad",
+        "name_zh": "大众银行",
+        "source_url": "https://www.pbebank.com/en/rates-charges/forex/",
+        "schedule_kind": "interval",
+        "interval_minutes": 180,
+        "daily_time_cn": None,
     },
 ]
 

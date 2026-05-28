@@ -121,6 +121,8 @@ export type SummaryResponse = {
   model_used: string | null;
 };
 
+export type ChannelScheduleKind = "interval" | "daily";
+
 export type AdminChannel = {
   code: string;
   name_en: string;
@@ -130,7 +132,25 @@ export type AdminChannel = {
   last_success_at: string | null;
   last_error_at: string | null;
   last_error_msg: string | null;
+  // Per-channel refresh policy. `daily_time_cn` is HH:MM in Asia/Shanghai
+  // (UTC+8). When schedule_kind='interval', interval_minutes is used.
+  schedule_kind: ChannelScheduleKind;
+  interval_minutes: number | null;
+  daily_time_cn: string | null;
 };
+
+export type ChannelPatchBody = Partial<
+  Pick<
+    AdminChannel,
+    | "active"
+    | "name_en"
+    | "name_zh"
+    | "source_url"
+    | "schedule_kind"
+    | "interval_minutes"
+    | "daily_time_cn"
+  >
+>;
 
 export type AdminSetting = {
   key: string;
@@ -179,10 +199,7 @@ export const api = {
       apiFetch<{ username: string }>("/api/admin/me", { cookieHeader, cache: "no-store" }),
     channels: (cookieHeader?: string) =>
       apiFetch<AdminChannel[]>("/api/admin/channels", { cookieHeader, cache: "no-store" }),
-    patchChannel: (
-      code: string,
-      body: Partial<Pick<AdminChannel, "active" | "name_en" | "name_zh" | "source_url">>,
-    ) =>
+    patchChannel: (code: string, body: ChannelPatchBody) =>
       apiFetch<AdminChannel>(`/api/admin/channels/${code}`, {
         method: "PATCH",
         body: JSON.stringify(body),

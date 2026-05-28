@@ -94,6 +94,7 @@ async def patch_channel(
     if ch is None:
         raise HTTPException(status_code=404, detail=f"unknown channel: {code}")
     was_active = ch.active
+    schedule_changed = False
     if body.active is not None:
         ch.active = body.active
     if body.name_en is not None:
@@ -102,14 +103,27 @@ async def patch_channel(
         ch.name_zh = body.name_zh
     if body.source_url is not None:
         ch.source_url = body.source_url
+    if body.schedule_kind is not None:
+        ch.schedule_kind = body.schedule_kind
+        schedule_changed = True
+    if body.interval_minutes is not None:
+        ch.interval_minutes = body.interval_minutes
+        schedule_changed = True
+    if body.daily_time_cn is not None:
+        ch.daily_time_cn = body.daily_time_cn
+        schedule_changed = True
     await session.commit()
     await session.refresh(ch)
 
-    if body.active is not None and body.active != was_active:
+    activation_changed = body.active is not None and body.active != was_active
+    if activation_changed:
         if ch.active and code in ALL_SCRAPERS:
-            schedule_channel(code)
+            await schedule_channel(code)
         else:
             unschedule_channel(code)
+    elif schedule_changed and ch.active and code in ALL_SCRAPERS:
+        # Same channel, new cadence — re-register the job in place.
+        await schedule_channel(code)
     return ChannelOut.model_validate(ch)
 
 

@@ -76,6 +76,7 @@ Each scraper must return rate as **MYR per 1 CNY**. Reference:
 | Mastercard | Similar to Visa                               | CNY → MYR, then apply markup          | `response_rate * (1 - 0.02)` |
 | Wise       | JSON `{rate}` where 1 source unit = X target  | `source=CNY&target=MYR`               | `response_rate` (already correct) |
 | CIMB       | MYR per N units foreign (section heading says `Per N Units of Foreign Currency`) | **CNY row Buying TT column ÷ multiplier** | `buying_tt / multiplier` (CNY is in the per-100 table → ÷100) |
+| Public Bank | MYR per N units foreign (multiplier baked into row label, e.g. `100 Chinese Renminbi (Non Trade)`) | **CNY row Buying TT column ÷ multiplier** | `buying_tt / 100` |
 | Midmarket  | Frankfurter `base=CNY` → `rates.MYR`          | direct                                | `rates.MYR` |
 
 ### 2.6 Sanity checks (write tests)
@@ -234,10 +235,13 @@ See §2 for direction and field selection. URLs below are starting points — ve
 | Mastercard     | `mastercard` | https://www.mastercard.co.uk/en-gb/personal/get-support/convert-currency.html                       | 30 min  | Med |
 | Wise           | `wise`       | POST https://api.wise.com/v3/quotes (unauthenticated quote)                                         | 10 min  | Low |
 | CIMB           | `cimb`       | https://www.cimb.com.my/en/business/help-and-support/rates-charges/forex-rates.html (server-rendered HTML; the Per-100 wholesale table) | 3 h     | Low |
+| Public Bank    | `publicbank` | https://www.pbebank.com/en/rates-charges/forex/ (server-rendered HTML; single forex table, multiplier in row label) | 3 h     | Low |
 
 > ⚠️ **Maybank was decommissioned 2026-05-28.** Akamai Bot Manager blocks plain server-side GET (HTTP 403) from OCI's data-center IP range. A Playwright + manual stealth tweaks attempt was implemented and verified end-to-end from OCI; Akamai still served an interstitial instead of the rate table (`'Chinese Renminbi' did not appear within 15s` in the diagnostic). Patchright / paid unblock services (ScrapingBee, ZenRows) were not pursued because CIMB covers the same Malaysian-bank data dimension cleanly. The Playwright-based Maybank scraper lives in git history at commits `f833360..baa596c` if anyone wants to revisit.
 
 > ⚠️ "Refresh" above is our poll cadence, not how often the source itself publishes. Frankfurter is daily (ECB ~CET 16:00); Wise / banks change intraday; Maybank / CIMB update at most a couple of times per business day. Polling faster than the source updates is harmless (deduplicated by `(channel, fetched_at)` uniqueness conceptually — we store every snapshot but the displayed value just stays the same) but doesn't increase actual freshness.
+
+> 📝 **Refresh cadence is per-channel and live-editable** since 2026-05-28. The values above are the *seed defaults* written to `channels.interval_minutes` / `channels.daily_time_cn` on first install. Admin can change either field via `/admin/channels` → "调度" without redeploying; the scheduler reschedules the job in place. `schedule_kind='daily'` runs `CronTrigger(hour, minute, timezone='Asia/Shanghai')` because every daily-style source (UnionPay, etc.) publishes on Beijing wall-clock. The constants `DEFAULT_INTERVAL_MINUTES` in `app/scheduler.py` is a last-resort fallback only.
 
 ### Fee model
 
@@ -322,14 +326,17 @@ SQLite for V1, written so Postgres migration is just a connection string change.
 #   name_zh     VARCHAR
 
 # channels
-#   code            VARCHAR PK
-#   name_en         VARCHAR
-#   name_zh         VARCHAR
-#   source_url      TEXT
-#   active          BOOL
-#   last_success_at DATETIME NULL
-#   last_error_at   DATETIME NULL
-#   last_error_msg  TEXT NULL
+#   code              VARCHAR PK
+#   name_en           VARCHAR
+#   name_zh           VARCHAR
+#   source_url        TEXT
+#   active            BOOL
+#   last_success_at   DATETIME NULL
+#   last_error_at     DATETIME NULL
+#   last_error_msg    TEXT NULL
+#   schedule_kind     VARCHAR(16) NOT NULL DEFAULT 'interval'  # 'interval' | 'daily'
+#   interval_minutes  INTEGER NULL                              # used when kind='interval'
+#   daily_time_cn     VARCHAR(5) NULL                           # HH:MM, Asia/Shanghai
 
 # rate_snapshots
 #   id              INTEGER PK
@@ -490,7 +497,7 @@ Track per-day cumulative cost in a small in-memory counter (reset at SGT 00:00).
 |---------------------|------------------------------------------------------------------------|
 | `/admin/login`      | Username + password form. POSTs to `/api/admin/login`, redirects.       |
 | `/admin`            | Dashboard. Cards: snapshots today, stale channels, last AI summary, recent errors. |
-| `/admin/channels`   | Table: code, name_zh, status (fresh/stale/disabled), last success, last error, [Scrape now], [Active] toggle, [Edit] modal. |
+| `/admin/channels`   | Table: code, name_zh, status (fresh/stale/disabled), schedule (每 N 分钟 / 每天 HH:MM 东八区), last success, last error, [调度] inline editor, [Active] toggle, [Scrape now]. Editing schedule re-registers the APScheduler job in place — no restart needed. |
 | `/admin/ai`         | Form for all `ai.*` settings. API key field shows `***`; only POSTs new value if user types. [Test connection] button. [Regenerate now]. Shows last 5 summaries. |
 | `/admin/logs`       | Last 200 scrape_logs rows, filter by level. Text dump, no fancy viewer. |
 
