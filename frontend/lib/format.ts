@@ -1,4 +1,3 @@
-import type { LatestRate } from "@/lib/api";
 import { zhCN } from "@/lib/i18n/zh-CN";
 
 /** "5 分钟前" / "2 小时前" / "1 天前" — Chinese relative time. */
@@ -22,36 +21,10 @@ export function displayCnyPerMyr(myrPerCny: string | number): string {
 }
 
 /** Pure conversion: amount × stored MYR-per-CNY rate. No fee deducted —
- * fees are shown separately in the table's '手续费' column for transparency. */
+ * fees aren't modeled in the homepage table; users check each channel
+ * directly for the exact fee they'd be charged. */
 export function grossCnyToMyr(cnyAmount: number, myrPerCny: string | number): number {
   const r = typeof myrPerCny === "string" ? parseFloat(myrPerCny) : myrPerCny;
   if (!Number.isFinite(r) || r <= 0 || cnyAmount <= 0) return 0;
   return cnyAmount * r;
-}
-
-const NUMBER_FMT = new Intl.NumberFormat("en-US", {
-  maximumFractionDigits: 2,
-  minimumFractionDigits: 0,
-});
-
-/** Fee display for the channel table. Prefer the exact value reported by the
- * scraper (`fee_estimate` + `fee_currency`), otherwise fall back to the
- * documented per-channel constants in CLAUDE.md §6, otherwise '—'. */
-export function feeDisplay(r: LatestRate): string {
-  if (r.fee_estimate && r.fee_currency) {
-    const amt = parseFloat(r.fee_estimate);
-    if (Number.isFinite(amt) && amt > 0) {
-      return `${NUMBER_FMT.format(amt)} ${r.fee_currency}`;
-    }
-  }
-  switch (r.channel_code) {
-    case "boc":
-      return zhCN.feeBOC;
-    case "maybank":
-      return zhCN.feeMaybank;
-    case "cimb":
-      return zhCN.feeCIMB;
-    default:
-      return zhCN.feeNone;
-  }
 }

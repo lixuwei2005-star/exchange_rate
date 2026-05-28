@@ -25,14 +25,8 @@ export const zhCN = {
   // Channel table
   tableHeaderChannel: "渠道",
   tableHeaderRate: "汇率（1 MYR = X CNY）",
-  tableHeaderFee: "手续费",
   tableHeaderReceive: "你能拿到 (MYR)",
-  tableHeaderUpdated: "更新于",
   unavailable: "暂时不可用",
-  feeBOC: "约 50 CNY",
-  feeMaybank: "约 10 MYR",
-  feeCIMB: "约 10 MYR",
-  feeNone: "—",
 
   // Times
   justNow: "刚刚",

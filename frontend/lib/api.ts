@@ -121,14 +121,6 @@ export type SummaryResponse = {
   model_used: string | null;
 };
 
-export type WiseQuoteResponse = {
-  source_amount: string;
-  target_amount: string;
-  rate: string;
-  fee: string;
-  fee_currency: string;
-};
-
 export type AdminChannel = {
   code: string;
   name_en: string;
@@ -181,8 +173,6 @@ export const api = {
     ),
   summary: (base = "CNY", quote = "MYR") =>
     apiFetch<SummaryResponse>(`/api/summary?base=${base}&quote=${quote}`),
-  quoteWise: (amount: number, base = "CNY", quote = "MYR") =>
-    apiFetch<WiseQuoteResponse>(`/api/quote/wise?amount=${amount}&base=${base}&quote=${quote}`),
 
   admin: {
     me: (cookieHeader?: string) =>

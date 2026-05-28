@@ -45,13 +45,3 @@ class SummaryResponse(BaseModel):
 class HealthResponse(BaseModel):
     ok: bool
     channels: dict[str, str]  # channel_code -> "fresh" | "stale"
-
-
-class WiseQuoteResponse(BaseModel):
-    """On-demand Wise quote for an arbitrary source amount."""
-
-    source_amount: Decimal
-    target_amount: Decimal
-    rate: Decimal  # MYR per 1 CNY, after Wise fee
-    fee: Decimal  # in source currency
-    fee_currency: str
