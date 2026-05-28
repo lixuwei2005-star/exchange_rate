@@ -72,7 +72,7 @@ Each scraper must return rate as **MYR per 1 CNY**. Reference:
 |------------|-----------------------------------------------|---------------------------------------|------------------------------|
 | BOC        | CNY per 100 MYR, 4 columns                    | **现汇卖出价**                          | `100 / 现汇卖出价` |
 | UnionPay   | Static daily JSON entry `1 transCur = rateData × baseCur` | entry `transCur=MYR, baseCur=CNY` | `1 / rateData` |
-| Visa       | "1 from = X to" via JSON endpoint             | `from=CNY, to=MYR`, then apply markup | `response_rate * (1 - 0.02)` |
+| Visa       | `originalValues.fxRateVisa` from cmsapi; **API silently swaps from/to** | trust `originalValues.fromCurrency/toCurrency`, invert if reversed | `fxRateVisa` (no markup) or `1 / fxRateVisa` if direction inverted |
 | Mastercard | Similar to Visa                               | CNY → MYR, then apply markup          | `response_rate * (1 - 0.02)` |
 | Wise       | JSON `{rate}` where 1 source unit = X target  | `source=CNY&target=MYR`               | `response_rate` (already correct) |
 | CIMB       | MYR per N units foreign (section heading says `Per N Units of Foreign Currency`) | **CNY row Buying TT column ÷ multiplier** | `buying_tt / multiplier` (CNY is in the per-100 table → ÷100) |
@@ -128,9 +128,9 @@ Each scraper must return rate as **MYR per 1 CNY**. Reference:
 | ORM          | SQLAlchemy 2.0 async                                                    |
 | Migrations   | Alembic                                                                 |
 | Scheduler    | APScheduler (in-process AsyncIOScheduler, timezone `Asia/Singapore`)    |
-| HTTP client  | httpx async                                                             |
+| HTTP client  | httpx async (default); `curl_cffi` only when a host blocks plain httpx via TLS/JA3 fingerprinting (Cloudflare JS challenges). Visa uses it. |
 | HTML parse   | BeautifulSoup4 + lxml                                                   |
-| Browser      | Playwright — **only** if HTTP-only is infeasible. Flag in PR.           |
+| Browser      | Playwright — **only** if HTTP-only + `curl_cffi` are both infeasible. Flag in PR. |
 | AI client    | `openai` Python SDK (works with any OpenAI-compatible endpoint) — §10   |
 | Crypto       | `cryptography` Fernet, for encrypting `settings.value` of API keys      |
 | Auth (admin) | JWT in httpOnly cookie (PyJWT) + passlib[bcrypt], single admin user     |
@@ -231,7 +231,7 @@ See §2 for direction and field selection. URLs below are starting points — ve
 | Mid-market     | `midmarket`  | https://api.frankfurter.dev/v1/latest?from=CNY&to=MYR  (was `frankfurter.app/latest`, 301 since 2026-Q1) | 60 min  | Low |
 | Bank of China  | `boc`        | https://www.boc.cn/sourcedb/whpj/                                                                   | 15 min  | Med — HTML may change |
 | UnionPay Intl  | `unionpay`   | GET https://www.unionpayintl.com/upload/jfimg/{YYYYMMDD}.json (static daily JSON)                   | daily 11:30 SGT | Low |
-| Visa           | `visa`       | https://www.visa.com.my/support/consumer/travel-support/exchange-rate-calculator.html               | 30 min  | Med — JSON endpoint |
+| Visa           | `visa`       | https://www.visa.com.my/cmsapi/fx/rates (Cloudflare-protected — use curl_cffi `impersonate='chrome124'`) | 30 min  | Med — Cloudflare JS challenge |
 | Mastercard     | `mastercard` | https://www.mastercard.co.uk/en-gb/personal/get-support/convert-currency.html                       | 30 min  | Med |
 | Wise           | `wise`       | POST https://api.wise.com/v3/quotes (unauthenticated quote)                                         | 10 min  | Low |
 | CIMB           | `cimb`       | https://www.cimb.com.my/en/business/help-and-support/rates-charges/forex-rates.html (server-rendered HTML; the Per-100 wholesale table) | 3 h     | Low |
@@ -253,7 +253,10 @@ BOC_TT_FEE_CNY = 50            # BOC TT outbound flat fee. Source: BOC fee sched
 UNIONPAY_MARKUP = 0.0          # UnionPay's published rate is a near-mid composite with no built-in markup.
                                # The real 1–2% cost users see is an issuer-dependent fee added on top
                                # by the card-issuing bank; not modeled in V1.
-VISA_ISSUER_MARKUP = 0.02      # ~2% conservative; real value varies by issuer.
+# VISA_ISSUER_MARKUP was removed 2026-05-28: homepage shows pure published
+# rates only (no markup, no fees), so user can compare apples to apples
+# and pick their own card / issuer separately. The stored Visa rate is
+# now Visa's raw `originalValues.fxRateVisa`.
 MASTERCARD_ISSUER_MARKUP = 0.02
 WISE_FEE_DYNAMIC = True        # Wise API returns explicit fee per 1000-CNY reference quote; treat as roughly fixed for V1 display because Wise's real fee scales slightly with amount.
 # Maybank decommissioned 2026-05-28; constant retained for parity with

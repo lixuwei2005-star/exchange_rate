@@ -15,7 +15,10 @@ from typing import Literal
 
 BOC_TT_FEE_CNY: Decimal = Decimal("50")  # BOC TT outbound flat fee  # TODO recheck-2026-11
 UNIONPAY_MARKUP: Decimal = Decimal("0")  # Markup baked into UnionPay's quote.
-VISA_ISSUER_MARKUP: Decimal = Decimal("0.02")  # ~2% conservative  # TODO recheck-2026-11
+# VISA_ISSUER_MARKUP was removed 2026-05-28: the homepage shows each channel's
+# pure published rate (no issuer markup, no fees) so users compare apples to
+# apples. The user picks which card / which issuer fee separately. See
+# CLAUDE.md §6 and the visa scraper.
 MASTERCARD_ISSUER_MARKUP: Decimal = Decimal("0.02")  # TODO recheck-2026-11
 WISE_FEE_DYNAMIC: bool = True  # Wise API returns explicit fee per quote
 MAYBANK_TT_FEE_MYR: Decimal = Decimal("10")  # approximate  # TODO recheck-2026-11
