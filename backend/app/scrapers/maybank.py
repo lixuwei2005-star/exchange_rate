@@ -144,8 +144,13 @@ class MaybankScraper(Scraper):
         except ImportError as exc:
             raise _PlaywrightUnavailable(f"playwright package not installed: {exc}") from exc
 
-        try:
-            async with async_playwright() as p:
+        async with async_playwright() as p:
+            # Narrow scope: ONLY treat browser-launch failures as 'unavailable'
+            # (that's the "Chromium binary not installed" condition). Anything
+            # downstream — navigation errors, HTTP/2 protocol issues, Akamai
+            # interstitials — is a real scrape failure and must NOT silently
+            # fall back to httpx (which would hide the cause and re-hit 403).
+            try:
                 browser = await p.chromium.launch(
                     headless=True,
                     args=[
@@ -157,52 +162,60 @@ class MaybankScraper(Scraper):
                         "--disable-gpu",
                     ],
                 )
+            except Exception as exc:
+                raise _PlaywrightUnavailable(f"chromium launch failed: {exc}") from exc
+
+            try:
+                context = await browser.new_context(
+                    user_agent=BROWSER_UA,
+                    viewport={"width": 1920, "height": 1080},
+                    locale="en-US",
+                    timezone_id="Asia/Kuala_Lumpur",
+                    extra_http_headers={
+                        "Accept-Language": BROWSER_HEADERS["Accept-Language"],
+                    },
+                )
+                await context.add_init_script(STEALTH_INIT_SCRIPT)
+                page = await context.new_page()
                 try:
-                    context = await browser.new_context(
-                        user_agent=BROWSER_UA,
-                        viewport={"width": 1920, "height": 1080},
-                        locale="en-US",
-                        timezone_id="Asia/Kuala_Lumpur",
-                        extra_http_headers={
-                            "Accept-Language": BROWSER_HEADERS["Accept-Language"],
-                        },
-                    )
-                    await context.add_init_script(STEALTH_INIT_SCRIPT)
-                    page = await context.new_page()
                     try:
                         await page.goto(
                             self.URL,
                             wait_until="domcontentloaded",
                             timeout=self.NAV_TIMEOUT_MS,
                         )
-                        # Wait for the marker text to appear in the DOM. If it
-                        # doesn't show within the timeout we're almost certainly
-                        # on an Akamai interstitial — fail loud.
-                        try:
-                            await page.wait_for_selector(
-                                f"text={PAGE_MARKER}", timeout=self.PAGE_WAIT_TIMEOUT_MS
-                            )
-                        except PWTimeout as exc:
-                            raise ScraperError(
-                                f"maybank (playwright): {PAGE_MARKER!r} did not appear "
-                                f"within {self.PAGE_WAIT_TIMEOUT_MS / 1000:.0f}s — likely "
-                                "an Akamai challenge page. Stealth tweaks aren't enough; "
-                                "needs a paid bypass service or a different source."
-                            ) from exc
-                        return await page.content()
-                    finally:
-                        await page.close()
+                    except PWTimeout as exc:
+                        raise ScraperError(
+                            f"maybank (playwright): page.goto timed out after "
+                            f"{self.NAV_TIMEOUT_MS / 1000:.0f}s"
+                        ) from exc
+                    except Exception as exc:
+                        # Navigation-level errors (HTTP/2 reset, TLS issues,
+                        # DNS, etc.) — real failures, surface them clearly.
+                        raise ScraperError(
+                            f"maybank (playwright): navigation failed: "
+                            f"{type(exc).__name__}: {exc}"
+                        ) from exc
+
+                    # Wait for the marker text to appear in the DOM. If it
+                    # doesn't show within the timeout we're almost certainly
+                    # on an Akamai interstitial — fail loud.
+                    try:
+                        await page.wait_for_selector(
+                            f"text={PAGE_MARKER}", timeout=self.PAGE_WAIT_TIMEOUT_MS
+                        )
+                    except PWTimeout as exc:
+                        raise ScraperError(
+                            f"maybank (playwright): {PAGE_MARKER!r} did not appear "
+                            f"within {self.PAGE_WAIT_TIMEOUT_MS / 1000:.0f}s — likely "
+                            "an Akamai challenge page. Stealth tweaks aren't enough; "
+                            "needs a paid bypass service or a different source."
+                        ) from exc
+                    return await page.content()
                 finally:
-                    await browser.close()
-        except ScraperError:
-            raise
-        except _PlaywrightUnavailable:
-            raise
-        except Exception as exc:
-            # Playwright is installed but the launch failed (likely the
-            # Chromium binary isn't installed in this image). Treat as
-            # "unavailable" so we fall back to httpx.
-            raise _PlaywrightUnavailable(f"playwright launch failed: {exc}") from exc
+                    await page.close()
+            finally:
+                await browser.close()
 
     async def _fetch_via_httpx(self) -> str:
         try:
