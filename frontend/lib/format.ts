@@ -1,3 +1,4 @@
+import type { LatestRate } from "@/lib/api";
 import { zhCN } from "@/lib/i18n/zh-CN";
 
 /** "5 分钟前" / "2 小时前" / "1 天前" — Chinese relative time. */
@@ -20,55 +21,37 @@ export function displayCnyPerMyr(myrPerCny: string | number): string {
   return (1 / n).toFixed(4);
 }
 
-/** Apply fee & convert N CNY → MYR using stored MYR/CNY rate. */
-export function convertCnyToMyr(
-  cnyAmount: number,
-  myrPerCny: string | number,
-  fee:
-    | { kind: "flat-cny"; amount: number }
-    | { kind: "flat-myr"; amount: number }
-    | { kind: "none" },
-): number {
+/** Pure conversion: amount × stored MYR-per-CNY rate. No fee deducted —
+ * fees are shown separately in the table's '手续费' column for transparency. */
+export function grossCnyToMyr(cnyAmount: number, myrPerCny: string | number): number {
   const r = typeof myrPerCny === "string" ? parseFloat(myrPerCny) : myrPerCny;
   if (!Number.isFinite(r) || r <= 0 || cnyAmount <= 0) return 0;
-  let cnyAfterFee = cnyAmount;
-  let myrFee = 0;
-  if (fee.kind === "flat-cny") cnyAfterFee = Math.max(0, cnyAmount - fee.amount);
-  else if (fee.kind === "flat-myr") myrFee = fee.amount;
-  const gross = cnyAfterFee * r;
-  return Math.max(0, gross - myrFee);
+  return cnyAmount * r;
 }
 
-/** Human-friendly fee label per channel. Constants tracked in CLAUDE.md §6. */
-export function feeLabel(channel: string): string {
-  switch (channel) {
+const NUMBER_FMT = new Intl.NumberFormat("en-US", {
+  maximumFractionDigits: 2,
+  minimumFractionDigits: 0,
+});
+
+/** Fee display for the channel table. Prefer the exact value reported by the
+ * scraper (`fee_estimate` + `fee_currency`), otherwise fall back to the
+ * documented per-channel constants in CLAUDE.md §6, otherwise '—'. */
+export function feeDisplay(r: LatestRate): string {
+  if (r.fee_estimate && r.fee_currency) {
+    const amt = parseFloat(r.fee_estimate);
+    if (Number.isFinite(amt) && amt > 0) {
+      return `${NUMBER_FMT.format(amt)} ${r.fee_currency}`;
+    }
+  }
+  switch (r.channel_code) {
     case "boc":
       return zhCN.feeBOC;
     case "maybank":
       return zhCN.feeMaybank;
     case "cimb":
       return zhCN.feeCIMB;
-    case "visa":
-    case "mastercard":
-      return zhCN.feeNetworkMarkup;
-    case "wise":
-      return zhCN.feeWise;
     default:
       return zhCN.feeNone;
-  }
-}
-
-/** What kind of fee deduction to apply for a given channel. */
-export function feeForChannel(channel: string): Parameters<typeof convertCnyToMyr>[2] {
-  switch (channel) {
-    case "boc":
-      return { kind: "flat-cny", amount: 50 };
-    case "maybank":
-    case "cimb":
-      return { kind: "flat-myr", amount: 10 };
-    default:
-      // Visa/MC markup is already baked into the stored rate.
-      // UnionPay/Wise/midmarket: no separate flat fee modeled.
-      return { kind: "none" };
   }
 }

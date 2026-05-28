@@ -2,14 +2,8 @@
 
 import { useMemo, useState } from "react";
 
-import {
-  convertCnyToMyr,
-  displayCnyPerMyr,
-  feeForChannel,
-  feeLabel,
-  relativeTimeZh,
-} from "@/lib/format";
 import type { LatestRate } from "@/lib/api";
+import { displayCnyPerMyr, feeDisplay, grossCnyToMyr, relativeTimeZh } from "@/lib/format";
 import { zhCN } from "@/lib/i18n/zh-CN";
 
 type SortKey = "receive" | "channel" | "updated";
@@ -25,8 +19,10 @@ export default function ChannelTable({ rows, amountCny }: Props) {
 
   const enriched = useMemo(() => {
     return rows.map((r) => {
-      const fee = feeForChannel(r.channel_code);
-      const myr = r.is_stale ? null : convertCnyToMyr(amountCny, r.rate, fee);
+      // '你能拿到' is now the pure rate * amount — fees are shown in their
+      // own column and NOT subtracted here (per UX decision: simpler, more
+      // honest, fewer hidden assumptions).
+      const myr = r.is_stale ? null : grossCnyToMyr(amountCny, r.rate);
       return { ...r, myr };
     });
   }, [rows, amountCny]);
@@ -64,7 +60,6 @@ export default function ChannelTable({ rows, amountCny }: Props) {
               {zhCN.tableHeaderChannel}
             </Th>
             <th className="px-4 py-2.5 text-right font-medium">{zhCN.tableHeaderRate}</th>
-            <th className="px-4 py-2.5 text-right font-medium">{zhCN.tableHeaderFee}</th>
             <Th
               onClick={() => onSort("receive")}
               active={sortKey === "receive"}
@@ -73,6 +68,7 @@ export default function ChannelTable({ rows, amountCny }: Props) {
             >
               {zhCN.tableHeaderReceive}
             </Th>
+            <th className="px-4 py-2.5 text-right font-medium">{zhCN.tableHeaderFee}</th>
             <Th
               onClick={() => onSort("updated")}
               active={sortKey === "updated"}
@@ -91,10 +87,10 @@ export default function ChannelTable({ rows, amountCny }: Props) {
             >
               <td className="px-4 py-3">{r.channel_name_zh}</td>
               <td className="px-4 py-3 text-right tabular-nums">{displayCnyPerMyr(r.rate)}</td>
-              <td className="px-4 py-3 text-right text-neutral-600">{feeLabel(r.channel_code)}</td>
               <td className="px-4 py-3 text-right font-medium tabular-nums">
                 {r.is_stale ? zhCN.unavailable : r.myr?.toFixed(2)}
               </td>
+              <td className="px-4 py-3 text-right text-neutral-600">{feeDisplay(r)}</td>
               <td className="px-4 py-3 text-right text-xs text-neutral-400">
                 {r.is_stale ? zhCN.unavailable : relativeTimeZh(r.fetched_at)}
               </td>
