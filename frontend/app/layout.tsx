@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { zhCN } from "@/lib/i18n/zh-CN";
 
 export const metadata: Metadata = {
-  title: zhCN.siteTitle,
+  title: zhCN.siteTitleFull,
   description: zhCN.siteTagline,
   robots: { index: true, follow: true },
 };

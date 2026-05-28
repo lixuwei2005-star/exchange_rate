@@ -48,9 +48,9 @@ export default function HistoryChart({ channels }: Props) {
   const data = points.map((p) => ({ date: p.date, rate: parseFloat(p.rate) }));
 
   return (
-    <section className="rounded-lg border border-neutral-200 bg-white p-4">
+    <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm md:p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold">{zhCN.chartTitle}</h2>
+        <h2 className="text-sm font-semibold tracking-tight">{zhCN.chartTitle}</h2>
         <div className="flex flex-wrap gap-1">
           {channels.map((c) => (
             <button

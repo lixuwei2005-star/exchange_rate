@@ -40,38 +40,50 @@ export default async function HomePage() {
   const allStale = rates.length > 0 && rates.every((r) => r.is_stale);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col px-4 py-8 md:py-12">
-      <header className="mb-8 flex flex-wrap items-baseline justify-between gap-2">
-        <SiteTitle />
+    <main className="mx-auto flex min-h-screen max-w-3xl flex-col px-4 pb-12 pt-8 md:px-6 md:pt-12">
+      {/* ---- Header ---- */}
+      <header className="mb-8 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <div>
+          <SiteTitle />
+          <p className="mt-1 text-sm text-neutral-500">{zhCN.siteTagline}</p>
+        </div>
         {newestRate && (
-          <span className="text-xs text-neutral-500">
+          <span className="text-xs text-neutral-400">
             {zhCN.lastUpdatedPrefix} {relativeTimeZh(newestRate.fetched_at)}
           </span>
         )}
       </header>
 
+      {/* ---- Stale banner ---- */}
       {allStale && (
-        <div className="mb-6 rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           {zhCN.dataDelayedBanner}
         </div>
       )}
 
-      <section className="mb-10">
+      {/* ---- Hero: mid-market headline ---- */}
+      <section className="mb-8">
         <RateHeadline myrPerCny={midmarket?.rate ?? null} />
       </section>
 
+      {/* ---- AI summary (one-liner, optional) ---- */}
       {summary.summary_zh && (
-        <p className="mb-8 text-center text-sm italic text-neutral-500">{summary.summary_zh}</p>
+        <p className="mb-8 text-center text-sm italic leading-relaxed text-neutral-500">
+          {summary.summary_zh}
+        </p>
       )}
 
+      {/* ---- Pure-rate comparison ---- */}
       <section className="mb-8">
         <RateOnlyTable rows={rates} />
       </section>
 
-      <section className="mb-10 flex-1">
+      {/* ---- Detailed comparison + chart ---- */}
+      <section className="mb-12 flex-1">
         <HomeContent initialRates={rates} />
       </section>
 
+      {/* ---- Footer ---- */}
       <footer className="mt-auto border-t border-neutral-200 pt-6 text-xs leading-relaxed text-neutral-500">
         <p className="mb-2">{zhCN.disclaimer}</p>
         <p>

@@ -56,15 +56,15 @@ export default function ChannelTable({ rows, amountCny }: Props) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-neutral-200 bg-white">
+    <div className="overflow-x-auto rounded-2xl border border-neutral-200 bg-white shadow-sm">
       <table className="w-full text-sm">
-        <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
+        <thead className="text-left text-xs uppercase tracking-wider text-neutral-400">
           <tr>
             <Th onClick={() => onSort("channel")} active={sortKey === "channel"} desc={desc}>
               {zhCN.tableHeaderChannel}
             </Th>
-            <th className="px-3 py-2 text-right">{zhCN.tableHeaderRate}</th>
-            <th className="px-3 py-2 text-right">{zhCN.tableHeaderFee}</th>
+            <th className="px-4 py-2.5 text-right font-medium">{zhCN.tableHeaderRate}</th>
+            <th className="px-4 py-2.5 text-right font-medium">{zhCN.tableHeaderFee}</th>
             <Th
               onClick={() => onSort("receive")}
               active={sortKey === "receive"}
@@ -89,13 +89,13 @@ export default function ChannelTable({ rows, amountCny }: Props) {
               key={r.channel_code}
               className={`border-t border-neutral-100 ${r.is_stale ? "text-neutral-400" : ""}`}
             >
-              <td className="px-3 py-2">{r.channel_name_zh}</td>
-              <td className="px-3 py-2 text-right tabular-nums">{displayCnyPerMyr(r.rate)}</td>
-              <td className="px-3 py-2 text-right">{feeLabel(r.channel_code)}</td>
-              <td className="px-3 py-2 text-right tabular-nums">
+              <td className="px-4 py-3">{r.channel_name_zh}</td>
+              <td className="px-4 py-3 text-right tabular-nums">{displayCnyPerMyr(r.rate)}</td>
+              <td className="px-4 py-3 text-right text-neutral-600">{feeLabel(r.channel_code)}</td>
+              <td className="px-4 py-3 text-right font-medium tabular-nums">
                 {r.is_stale ? zhCN.unavailable : r.myr?.toFixed(2)}
               </td>
-              <td className="px-3 py-2 text-right text-xs text-neutral-500">
+              <td className="px-4 py-3 text-right text-xs text-neutral-400">
                 {r.is_stale ? zhCN.unavailable : relativeTimeZh(r.fetched_at)}
               </td>
             </tr>
@@ -127,12 +127,12 @@ function Th({
   align?: "left" | "right";
 }) {
   return (
-    <th className={`px-3 py-2 ${align === "right" ? "text-right" : "text-left"}`}>
+    <th className={`px-4 py-2.5 font-medium ${align === "right" ? "text-right" : "text-left"}`}>
       <button
         type="button"
         onClick={onClick}
-        className={`inline-flex items-center gap-1 hover:text-neutral-900 ${
-          active ? "text-neutral-900" : ""
+        className={`inline-flex items-center gap-1 hover:text-neutral-700 ${
+          active ? "text-neutral-700" : ""
         }`}
       >
         {children}

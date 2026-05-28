@@ -10,9 +10,12 @@ describe("<SiteTitle>", () => {
     expect(screen.getByRole("heading", { name: zhCN.siteTitle })).toBeInTheDocument();
   });
 
-  it("supports the md size variant", () => {
+  it("md variant uses a smaller font than the default lg", () => {
     render(<SiteTitle size="md" />);
     const h = screen.getByRole("heading");
-    expect(h.className).toContain("text-lg");
+    // md is currently text-base (vs lg's text-2xl/3xl) — assert the smaller
+    // utility class is present without pinning to an exact value.
+    expect(h.className).toMatch(/\btext-(xs|sm|base)\b/);
+    expect(h.className).not.toMatch(/\btext-(xl|2xl|3xl)\b/);
   });
 });

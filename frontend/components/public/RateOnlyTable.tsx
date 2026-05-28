@@ -23,23 +23,23 @@ export default function RateOnlyTable({ rows }: { rows: LatestRate[] }) {
   );
 
   return (
-    <section className="rounded-lg border border-neutral-200 bg-white">
-      <header className="border-b border-neutral-100 px-3 py-2">
-        <h2 className="text-sm font-semibold">{zhCN.rateOnlyTitle}</h2>
-        <p className="mt-0.5 text-xs leading-relaxed text-neutral-500">{zhCN.rateOnlyHint}</p>
+    <section className="overflow-hidden rounded-2xl border border-neutral-200 bg-white shadow-sm">
+      <header className="border-b border-neutral-100 px-4 py-3">
+        <h2 className="text-sm font-semibold tracking-tight">{zhCN.rateOnlyTitle}</h2>
+        <p className="mt-1 text-xs leading-relaxed text-neutral-500">{zhCN.rateOnlyHint}</p>
       </header>
       <table className="w-full text-sm">
-        <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
+        <thead className="text-left text-xs uppercase tracking-wider text-neutral-400">
           <tr>
-            <th className="px-3 py-2">{zhCN.tableHeaderChannel}</th>
-            <th className="px-3 py-2 text-right">{zhCN.tableHeaderRate}</th>
+            <th className="px-4 py-2.5 font-medium">{zhCN.tableHeaderChannel}</th>
+            <th className="px-4 py-2.5 text-right font-medium">{zhCN.tableHeaderRate}</th>
           </tr>
         </thead>
         <tbody>
           {sorted.map((r) => (
             <tr key={r.channel_code} className="border-t border-neutral-100">
-              <td className="px-3 py-2">{r.channel_name_zh}</td>
-              <td className="px-3 py-2 text-right tabular-nums">
+              <td className="px-4 py-3">{r.channel_name_zh}</td>
+              <td className="px-4 py-3 text-right font-medium tabular-nums">
                 {displayCnyPerMyr(r.headline_rate)}
               </td>
             </tr>

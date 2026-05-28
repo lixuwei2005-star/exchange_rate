@@ -2,8 +2,9 @@
  * 用户可见字符串。所有 zh-CN 文案集中在这里（CLAUDE.md §1）。
  */
 export const zhCN = {
-  siteTitle: "汇率对比 · rate.005917.xyz",
-  siteTagline: "为在马来西亚的中国留学生，比较 CNY → MYR 的换汇方案",
+  siteTitle: "CNY → MYR Rate",
+  siteTitleFull: "CNY → MYR Rate · rate.005917.xyz",
+  siteTagline: "在马来西亚换汇，看哪家最划算。",
   comingSoon: "敬请期待",
 
   // Hero
