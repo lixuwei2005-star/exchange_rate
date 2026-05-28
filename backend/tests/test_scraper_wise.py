@@ -45,11 +45,17 @@ def quote_payload(
 
 
 def bank_fee_options() -> list[dict]:
+    """Two-option set matching the real Wise response shape: an ALIPAY→BANK
+    cheap option and the BANK→BANK option we prefer (slightly higher fee)."""
     return [
         {
             "formattedEstimatedDelivery": "in seconds",
             "payOut": "BANK_TRANSFER",
             "payIn": "ALIPAY",
+            "sourceAmount": 1000.00,
+            "targetAmount": 580.04,
+            "sourceCurrency": "CNY",
+            "targetCurrency": "MYR",
             "price": {
                 "total": {
                     "type": "TOTAL",
@@ -57,19 +63,16 @@ def bank_fee_options() -> list[dict]:
                     "value": {"amount": 10.34, "currency": "CNY", "label": "10.34 CNY"},
                 }
             },
-            "fee": {
-                "transferwise": 10.34,
-                "payIn": 0.0,
-                "discount": 0,
-                "total": 10.34,
-                "priceSetId": 5129,
-                "partner": 0.0,
-            },
+            "fee": {"total": 10.34},
         },
         {
             "formattedEstimatedDelivery": "in 60 minutes",
             "payOut": "BANK_TRANSFER",
             "payIn": "BANK_TRANSFER",
+            "sourceAmount": 1000.00,
+            "targetAmount": 570.96,
+            "sourceCurrency": "CNY",
+            "targetCurrency": "MYR",
             "price": {
                 "total": {
                     "type": "TOTAL",
@@ -77,44 +80,39 @@ def bank_fee_options() -> list[dict]:
                     "value": {"amount": 25.66, "currency": "CNY", "label": "25.66 CNY"},
                 }
             },
-            "fee": {
-                "transferwise": 25.66,
-                "payIn": 0.0,
-                "discount": 0,
-                "total": 25.66,
-                "priceSetId": 5102,
-                "partner": 0.0,
-            },
-            "sourceAmount": 1000.00,
-            "targetAmount": 570.96,
-            "sourceCurrency": "CNY",
-            "targetCurrency": "MYR",
+            "fee": {"total": 25.66},
         },
     ]
 
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_wise_parses_rate_and_preferred_bank_transfer_fee():
+async def test_wise_stores_effective_rate_from_preferred_bank_transfer_option():
+    """rate = targetAmount/sourceAmount on the BANK→BANK option,
+    NOT the top-level mid-market `rate` field."""
     route = respx.post(WISE_URL).mock(return_value=httpx.Response(200, json=quote_payload()))
 
     result = await WiseScraper().fetch("CNY", "MYR")
 
-    assert result.rate == Decimal("0.585994")
+    # 570.96 / 1000 = 0.57096 — the effective rate after Wise's fee
+    assert result.rate == (Decimal("570.96") / Decimal("1000")).quantize(Decimal("0.00000001"))
+    # NOT the mid-market 0.585994 (which is bigger)
+    assert result.rate < Decimal("0.585994")
     assert result.fee_estimate == Decimal("25.66")
     assert result.fee_currency == "CNY"
     assert result.rate_type == "p2p"
-    assert result.raw_payload["rate"] == 0.585994
     assert route.calls[0].request.url.path == "/v3/quotes"
 
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_wise_uses_lowest_fee_when_bank_transfer_combo_absent():
+async def test_wise_falls_back_to_lowest_fee_when_bank_transfer_combo_absent():
     payment_options = [
         {
             "payIn": "ALIPAY",
             "payOut": "BANK_TRANSFER",
+            "sourceAmount": 1000.00,
+            "targetAmount": 565.10,
             "price": {
                 "total": {"value": {"amount": 38.55, "currency": "CNY", "label": "38.55 CNY"}}
             },
@@ -123,6 +121,8 @@ async def test_wise_uses_lowest_fee_when_bank_transfer_combo_absent():
         {
             "payIn": "CARD",
             "payOut": "BANK_TRANSFER",
+            "sourceAmount": 1000.00,
+            "targetAmount": 560.00,
             "price": {
                 "total": {"value": {"amount": 42.12, "currency": "CNY", "label": "42.12 CNY"}}
             },
@@ -135,14 +135,27 @@ async def test_wise_uses_lowest_fee_when_bank_transfer_combo_absent():
 
     result = await WiseScraper().fetch("CNY", "MYR")
 
-    assert result.fee_estimate == Decimal("38.55")
-    assert result.fee_currency == "CNY"
+    assert result.fee_estimate == Decimal("38.55")  # lowest fee option chosen
+    assert result.rate == (Decimal("565.10") / Decimal("1000")).quantize(Decimal("0.00000001"))
 
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_wise_rejects_out_of_range_rate():
-    respx.post(WISE_URL).mock(return_value=httpx.Response(200, json=quote_payload(rate=0.9)))
+async def test_wise_rejects_out_of_range_effective_rate():
+    # craft an option whose effective rate falls outside the [0.5, 0.8] window
+    bad_options = [
+        {
+            "payIn": "BANK_TRANSFER",
+            "payOut": "BANK_TRANSFER",
+            "sourceAmount": 1000.00,
+            "targetAmount": 100.00,  # → 0.1, way too low
+            "fee": {"total": 5.0},
+            "price": {"total": {"value": {"currency": "CNY"}}},
+        }
+    ]
+    respx.post(WISE_URL).mock(
+        return_value=httpx.Response(200, json=quote_payload(payment_options=bad_options))
+    )
 
     with pytest.raises(ScraperError):
         await WiseScraper().fetch("CNY", "MYR")
@@ -150,7 +163,9 @@ async def test_wise_rejects_out_of_range_rate():
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_wise_empty_payment_options_keeps_primary_rate_without_fee():
+async def test_wise_empty_payment_options_falls_back_to_top_level_rate():
+    """When paymentOptions is empty, fall back to the response's top-level
+    mid-market `rate` (no fee info, less accurate but better than failing)."""
     respx.post(WISE_URL).mock(
         return_value=httpx.Response(200, json=quote_payload(payment_options=[]))
     )
@@ -164,8 +179,7 @@ async def test_wise_empty_payment_options_keeps_primary_rate_without_fee():
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_wise_reverse_pair_contingency_when_empty_options_have_no_rate():
-    primary = quote_payload(rate=None, payment_options=[])
+async def test_wise_reverse_pair_contingency_when_primary_http_fails():
     reverse = quote_payload(
         rate=1.7065,
         payment_options=[],
@@ -174,14 +188,14 @@ async def test_wise_reverse_pair_contingency_when_empty_options_have_no_rate():
     )
     respx.post(WISE_URL).mock(
         side_effect=[
-            httpx.Response(200, json=primary),
+            httpx.Response(500),  # primary blows up
             httpx.Response(200, json=reverse),
         ]
     )
 
     result = await WiseScraper().fetch("CNY", "MYR")
 
-    assert result.rate == Decimal("1") / Decimal("1.7065")
+    assert result.rate == (Decimal("1") / Decimal("1.7065")).quantize(Decimal("0.00000001"))
     assert result.fee_estimate is None
     assert result.fee_currency is None
     assert result.raw_payload["fallback"] == "reverse_pair"

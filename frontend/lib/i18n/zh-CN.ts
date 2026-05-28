@@ -29,7 +29,7 @@ export const zhCN = {
   feeCIMB: "约 10 MYR",
   feeNone: "—",
   feeNetworkMarkup: "已含 ~2% 网络加价",
-  feeWise: "动态（见 Wise）",
+  feeWise: "已含 Wise 手续费",
 
   // Times
   justNow: "刚刚",

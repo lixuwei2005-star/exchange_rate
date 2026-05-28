@@ -12,8 +12,16 @@ from app.scrapers.base import Scraper, ScraperError, ScrapeResult
 class WiseScraper(Scraper):
     """Wise unauthenticated quote endpoint.
 
-    Wise returns rate as quote per 1 source, exactly the direction we store
-    for CNY->MYR. Fees are captured from a 1000-source-currency reference quote.
+    Stores the EFFECTIVE rate (targetAmount/sourceAmount on the preferred
+    paymentOption) — i.e. what the customer actually receives per unit of
+    source currency, **after** Wise's fee. This makes Wise comparable apples-
+    to-apples with the other channels on the homepage's '你能拿到' column
+    without any further frontend math. `fee_estimate` is also captured for
+    transparency.
+
+    Preferred paymentOption: BANK_TRANSFER → BANK_TRANSFER. If absent, picks
+    the option with the lowest fee. If `paymentOptions` is empty or unusable,
+    falls back to the response's top-level `rate` (mid-market, no fee info).
     """
 
     channel_code: ClassVar[str] = "wise"
@@ -30,28 +38,90 @@ class WiseScraper(Scraper):
             except ScraperError as exc:
                 return await self._fetch_reverse_pair(client, base, quote, str(exc))
 
-            rate_value = payload.get("rate")
-            if rate_value is None and payload.get("paymentOptions") == []:
-                return await self._fetch_reverse_pair(
-                    client, base, quote, "primary quote had empty paymentOptions and no rate"
-                )
-            if rate_value is None:
-                raise ScraperError(f"wise: response missing rate: {payload!r}")
+        option = self._select_option(payload)
+        if (
+            option is not None
+            and option.get("sourceAmount") is not None
+            and option.get("targetAmount") is not None
+        ):
+            return self._result_from_option(payload, option, base, quote)
 
-            rate = self._parse_rate(rate_value)
-            if base == "CNY" and quote == "MYR":
-                self._sanity_check(rate)
-
-            fee_estimate, fee_currency = self._extract_fee(payload, source_currency=base)
-            return ScrapeResult(
-                base_currency=base,
-                quote_currency=quote,
-                rate=rate,
-                rate_type="p2p",
-                raw_payload=payload,
-                fee_estimate=fee_estimate,
-                fee_currency=fee_currency,
+        # No usable option with amounts — fall back to top-level mid-market rate.
+        rate_value = payload.get("rate")
+        if rate_value is None:
+            raise ScraperError(
+                f"wise: no paymentOption with amounts and no top-level rate: {payload!r}"
             )
+        rate = self._parse_decimal(rate_value, "rate")
+        if base == "CNY" and quote == "MYR":
+            self._sanity_check(rate)
+        return ScrapeResult(
+            base_currency=base,
+            quote_currency=quote,
+            rate=rate,
+            rate_type="p2p",
+            raw_payload=payload,
+            fee_estimate=None,
+            fee_currency=None,
+        )
+
+    def _result_from_option(
+        self, payload: dict, option: dict, base: str, quote: str
+    ) -> ScrapeResult:
+        source_amount = self._parse_decimal(option.get("sourceAmount"), "sourceAmount")
+        target_amount = self._parse_decimal(option.get("targetAmount"), "targetAmount")
+        if source_amount <= 0:
+            raise ScraperError(f"wise: non-positive sourceAmount {source_amount}")
+        effective_rate = (target_amount / source_amount).quantize(Decimal("0.00000001"))
+        if base == "CNY" and quote == "MYR":
+            self._sanity_check(effective_rate)
+
+        fee_total: Decimal | None = None
+        fee = option.get("fee")
+        if isinstance(fee, dict) and fee.get("total") is not None:
+            try:
+                fee_total = to_decimal(fee.get("total"))
+            except Exception as exc:
+                raise ScraperError(f"wise: cannot parse fee: {exc}") from exc
+
+        return ScrapeResult(
+            base_currency=base,
+            quote_currency=quote,
+            rate=effective_rate,
+            rate_type="p2p",
+            raw_payload=payload,
+            fee_estimate=fee_total,
+            fee_currency=base if fee_total is not None else None,
+        )
+
+    def _select_option(self, payload: dict) -> dict | None:
+        options = payload.get("paymentOptions")
+        if not isinstance(options, list) or not options:
+            return None
+        usable = [o for o in options if isinstance(o, dict) and not o.get("disabled", False)]
+        if not usable:
+            usable = [o for o in options if isinstance(o, dict)]
+        if not usable:
+            return None
+        # Prefer BANK_TRANSFER both ways — that's the cheapest typical path.
+        for o in usable:
+            if (
+                o.get("payIn") == self.PREFERRED_PAY_IN
+                and o.get("payOut") == self.PREFERRED_PAY_OUT
+            ):
+                return o
+
+        # Otherwise pick the lowest-fee option (with fallback for missing fees).
+        def _fee_of(o: dict) -> Decimal:
+            fee = o.get("fee")
+            if isinstance(fee, dict) and fee.get("total") is not None:
+                try:
+                    return to_decimal(fee.get("total"))
+                except Exception:
+                    return Decimal("9" * 12)
+            return Decimal("9" * 12)
+
+        return min(usable, key=_fee_of)
 
     async def _request_quote(self, client: httpx.AsyncClient, *, source: str, target: str) -> dict:
         request_payload = {
@@ -65,7 +135,6 @@ class WiseScraper(Scraper):
             payload = resp.json()
         except (httpx.HTTPError, ValueError) as exc:
             raise ScraperError(f"wise: HTTP error: {exc}") from exc
-
         if not isinstance(payload, dict):
             raise ScraperError(f"wise: expected object response, got {type(payload).__name__}")
         return payload
@@ -74,21 +143,17 @@ class WiseScraper(Scraper):
         self, client: httpx.AsyncClient, base: str, quote: str, reason: str
     ) -> ScrapeResult:
         reverse_payload = await self._request_quote(client, source=quote, target=base)
-        reverse_rate_value = reverse_payload.get("rate")
-        if reverse_rate_value is None:
+        rev_rate = reverse_payload.get("rate")
+        if rev_rate is None:
             raise ScraperError(
-                f"wise: primary quote failed ({reason}); reverse response missing rate: "
-                f"{reverse_payload!r}"
+                f"wise: primary failed ({reason}); reverse missing rate: {reverse_payload!r}"
             )
-
-        reverse_rate = self._parse_rate(reverse_rate_value)
-        if reverse_rate == 0:
-            raise ScraperError("wise: reverse response rate is zero")
-        rate = Decimal("1") / reverse_rate
-
+        rev = self._parse_decimal(rev_rate, "reverse rate")
+        if rev == 0:
+            raise ScraperError("wise: reverse rate is zero")
+        rate = (Decimal("1") / rev).quantize(Decimal("0.00000001"))
         if base == "CNY" and quote == "MYR":
             self._sanity_check(rate)
-
         return ScrapeResult(
             base_currency=base,
             quote_currency=quote,
@@ -103,61 +168,8 @@ class WiseScraper(Scraper):
             fee_currency=None,
         )
 
-    def _parse_rate(self, value: object) -> Decimal:
+    def _parse_decimal(self, value: object, what: str) -> Decimal:
         try:
             return to_decimal(value)
         except Exception as exc:
-            raise ScraperError(f"wise: cannot parse rate: {exc}") from exc
-
-    def _extract_fee(
-        self, payload: dict, *, source_currency: str
-    ) -> tuple[Decimal | None, str | None]:
-        options = payload.get("paymentOptions")
-        if not isinstance(options, list) or not options:
-            return None, None
-
-        fee_options: list[tuple[dict, Decimal]] = []
-        for option in options:
-            if not isinstance(option, dict):
-                continue
-            fee = option.get("fee")
-            if not isinstance(fee, dict) or fee.get("total") is None:
-                continue
-            try:
-                fee_options.append((option, to_decimal(fee.get("total"))))
-            except Exception as exc:
-                raise ScraperError(f"wise: cannot parse fee: {exc}") from exc
-
-        if not fee_options:
-            return None, None
-
-        selected_option, fee_total = self._select_fee_option(fee_options)
-        fee_currency = self._extract_fee_currency(selected_option, source_currency=source_currency)
-        return fee_total, fee_currency
-
-    def _select_fee_option(self, fee_options: list[tuple[dict, Decimal]]) -> tuple[dict, Decimal]:
-        for option, fee_total in fee_options:
-            if (
-                option.get("payIn") == self.PREFERRED_PAY_IN
-                and option.get("payOut") == self.PREFERRED_PAY_OUT
-            ):
-                return option, fee_total
-        return min(fee_options, key=lambda item: item[1])
-
-    def _extract_fee_currency(self, option: dict, *, source_currency: str) -> str:
-        price = option.get("price")
-        currency = None
-        if isinstance(price, dict):
-            total = price.get("total")
-            if isinstance(total, dict):
-                value = total.get("value")
-                if isinstance(value, dict):
-                    currency = value.get("currency")
-
-        if currency is None:
-            return source_currency
-        if currency != source_currency:
-            raise ScraperError(
-                f"wise: fee currency {currency!r} does not match source {source_currency!r}"
-            )
-        return source_currency
+            raise ScraperError(f"wise: cannot parse {what}: {exc}") from exc
