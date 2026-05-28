@@ -6,10 +6,13 @@ import { api, type LatestRate, type SummaryResponse } from "@/lib/api";
 import { relativeTimeZh } from "@/lib/format";
 import { zhCN } from "@/lib/i18n/zh-CN";
 
-// ISR: re-render at most once a minute. Backend scrapers run every 30 min
-// (midmarket/wise) up to 6 h (maybank/cimb), so a 60s ceiling keeps the
-// homepage close to the freshest snapshot without spamming re-renders.
-export const revalidate = 60;
+// Render fresh on every request. ISR caching was making the homepage feel
+// stale by 4-14 minutes — Cloudflare was honoring s-maxage from Next.js and
+// caching the HTML on top of our own 60s in-process cache. The backend can
+// trivially handle every page load (a couple of small SQL queries), so the
+// simplest correct answer is to drop caching entirely on this page.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 async function safeFetch<T>(promise: Promise<T>, fallback: T): Promise<T> {
   try {
