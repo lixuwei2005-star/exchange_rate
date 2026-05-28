@@ -41,11 +41,13 @@ REFRESH_MINUTES: dict[str, int] = {
     "boc": 15,
     "visa": 30,
     "mastercard": 30,
-    "maybank": 180,
     "cimb": 180,
     # NOTE: unionpay is NOT here on purpose — it gets a daily cron (see
     # CHANNEL_CRONS below) because its source is a once-per-day static
     # file named by Beijing date.
+    # NOTE: maybank was investigated 2026-05-28 and decommissioned —
+    # Akamai blocks data-center IPs from OCI even via Playwright + stealth.
+    # See CLAUDE.md §6 for the full write-up.
 }
 
 # Channels that prefer a daily cron over an IntervalTrigger because the

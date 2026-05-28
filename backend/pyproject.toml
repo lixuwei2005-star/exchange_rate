@@ -25,10 +25,6 @@ dependencies = [
     "apscheduler>=3.10",
     "slowapi>=0.1.9",
     "python-multipart>=0.0.9",
-    # Playwright is used only by the maybank scraper to get past Akamai's
-    # bot manager (a plain httpx GET from OCI returns 403). The actual
-    # Chromium binary is installed by `playwright install` in the Dockerfile.
-    "playwright>=1.40",
 ]
 
 [project.optional-dependencies]

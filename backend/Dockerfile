@@ -17,14 +17,6 @@ RUN apt-get update \
 COPY pyproject.toml ./
 RUN pip install --upgrade pip && pip install -e ".[dev]"
 
-# Install Chromium for the maybank scraper. --with-deps pulls in the apt
-# packages Chromium needs (libnss3, libatk1.0-0, libgtk-3-0, libxss1, etc.).
-# This adds ~500 MB to the image. If you don't need maybank, you can drop
-# this RUN line and the scraper will fall back to its httpx path (which is
-# blocked by Akamai from OCI, but works in other environments).
-RUN python -m playwright install --with-deps chromium \
-    && rm -rf /var/lib/apt/lists/*
-
 COPY . .
 
 RUN mkdir -p /data

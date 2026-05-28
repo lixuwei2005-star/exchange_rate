@@ -75,7 +75,6 @@ Each scraper must return rate as **MYR per 1 CNY**. Reference:
 | Visa       | "1 from = X to" via JSON endpoint             | `from=CNY, to=MYR`, then apply markup | `response_rate * (1 - 0.02)` |
 | Mastercard | Similar to Visa                               | CNY → MYR, then apply markup          | `response_rate * (1 - 0.02)` |
 | Wise       | JSON `{rate}` where 1 source unit = X target  | `source=CNY&target=MYR`               | `response_rate` (already correct) |
-| Maybank    | MYR per N units (N from row label, e.g. `100 Chinese Renminbi`) | **CNY TT Buying column ÷ multiplier** | `tt_buying / multiplier` |
 | CIMB       | MYR per N units foreign (section heading says `Per N Units of Foreign Currency`) | **CNY row Buying TT column ÷ multiplier** | `buying_tt / multiplier` (CNY is in the per-100 table → ÷100) |
 | Midmarket  | Frankfurter `base=CNY` → `rates.MYR`          | direct                                | `rates.MYR` |
 
@@ -234,8 +233,9 @@ See §2 for direction and field selection. URLs below are starting points — ve
 | Visa           | `visa`       | https://www.visa.com.my/support/consumer/travel-support/exchange-rate-calculator.html               | 30 min  | Med — JSON endpoint |
 | Mastercard     | `mastercard` | https://www.mastercard.co.uk/en-gb/personal/get-support/convert-currency.html                       | 30 min  | Med |
 | Wise           | `wise`       | POST https://api.wise.com/v3/quotes (unauthenticated quote)                                         | 10 min  | Low |
-| Maybank        | `maybank`    | GET https://www.maybank2u.com.my/maybank2u/malaysia/en/personal/rates/forex_rates.page (server-rendered HTML table) | 6 h     | Med (Akamai) |
 | CIMB           | `cimb`       | https://www.cimb.com.my/en/business/help-and-support/rates-charges/forex-rates.html (server-rendered HTML; the Per-100 wholesale table) | 3 h     | Low |
+
+> ⚠️ **Maybank was decommissioned 2026-05-28.** Akamai Bot Manager blocks plain server-side GET (HTTP 403) from OCI's data-center IP range. A Playwright + manual stealth tweaks attempt was implemented and verified end-to-end from OCI; Akamai still served an interstitial instead of the rate table (`'Chinese Renminbi' did not appear within 15s` in the diagnostic). Patchright / paid unblock services (ScrapingBee, ZenRows) were not pursued because CIMB covers the same Malaysian-bank data dimension cleanly. The Playwright-based Maybank scraper lives in git history at commits `f833360..baa596c` if anyone wants to revisit.
 
 > ⚠️ "Refresh" above is our poll cadence, not how often the source itself publishes. Frankfurter is daily (ECB ~CET 16:00); Wise / banks change intraday; Maybank / CIMB update at most a couple of times per business day. Polling faster than the source updates is harmless (deduplicated by `(channel, fetched_at)` uniqueness conceptually — we store every snapshot but the displayed value just stays the same) but doesn't increase actual freshness.
 
@@ -252,10 +252,9 @@ UNIONPAY_MARKUP = 0.0          # UnionPay's published rate is a near-mid composi
 VISA_ISSUER_MARKUP = 0.02      # ~2% conservative; real value varies by issuer.
 MASTERCARD_ISSUER_MARKUP = 0.02
 WISE_FEE_DYNAMIC = True        # Wise API returns explicit fee per 1000-CNY reference quote; treat as roughly fixed for V1 display because Wise's real fee scales slightly with amount.
-MAYBANK_TT_FEE_MYR = 10        # approximate; NOT applied to the homepage counter-rate
-                               # comparison (the bank's spread is already in tt_buying).
-                               # This is the RM TT charge for outbound transfers, kept
-                               # as a constant for future use. fee_estimate=None in V1.
+# Maybank decommissioned 2026-05-28; constant retained for parity with
+# CIMB but unused by V1. See §6 note.
+MAYBANK_TT_FEE_MYR = 10
 CIMB_TT_FEE_MYR = 10           # same reasoning as Maybank: NOT applied to the homepage
                                # counter-rate comparison (bank spread already in
                                # Buying TT). fee_estimate=None in V1.

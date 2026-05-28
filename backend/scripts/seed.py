@@ -62,14 +62,8 @@ CHANNELS = [
         "name_zh": "Wise",
         "source_url": "https://api.wise.com/v1/rates?source=CNY&target=MYR",
     },
-    {
-        "code": "maybank",
-        "name_en": "Maybank",
-        "name_zh": "马来亚银行",
-        "source_url": (
-            "https://www.maybank2u.com.my/maybank2u/malaysia/en/personal/rates/forex_rates.page"
-        ),
-    },
+    # Maybank decommissioned 2026-05-28: Akamai blocks OCI; see CLAUDE.md §6.
+    # If you re-add it, also restore the scraper + REFRESH_MINUTES entry.
     {
         "code": "cimb",
         "name_en": "CIMB Bank",
