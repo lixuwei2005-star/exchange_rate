@@ -228,14 +228,16 @@ See §2 for direction and field selection. URLs below are starting points — ve
 
 | Channel        | Code         | Source URL                                                                                          | Refresh | Fragility |
 |----------------|--------------|------------------------------------------------------------------------------------------------------|---------|-----------|
-| Mid-market     | `midmarket`  | https://api.frankfurter.dev/v1/latest?from=CNY&to=MYR  (was `frankfurter.app/latest`, 301 since 2026-Q1) | 30 min  | Low |
-| Bank of China  | `boc`        | https://www.boc.cn/sourcedb/whpj/                                                                   | 30 min  | Med — HTML may change |
-| UnionPay Intl  | `unionpay`   | https://www.unionpayintl.com/cardholderServ/serviceCenter/rate/                                     | 60 min  | High — form POST, session may be needed |
-| Visa           | `visa`       | https://www.visa.com.my/support/consumer/travel-support/exchange-rate-calculator.html               | 60 min  | Med — JSON endpoint |
-| Mastercard     | `mastercard` | https://www.mastercard.co.uk/en-gb/personal/get-support/convert-currency.html                       | 60 min  | Med |
-| Wise           | `wise`       | POST https://api.wise.com/v3/quotes (unauthenticated quote)                                         | 30 min  | Low |
-| Maybank        | `maybank`    | https://www.maybank2u.com.my/foreign-exchange-rates                                                 | 6 h     | Med |
-| CIMB           | `cimb`       | https://www.cimb.com.my/en/personal/help-support/rates/foreign-exchange-counter-rates.html          | 6 h     | Med |
+| Mid-market     | `midmarket`  | https://api.frankfurter.dev/v1/latest?from=CNY&to=MYR  (was `frankfurter.app/latest`, 301 since 2026-Q1) | 10 min  | Low |
+| Bank of China  | `boc`        | https://www.boc.cn/sourcedb/whpj/                                                                   | 15 min  | Med — HTML may change |
+| UnionPay Intl  | `unionpay`   | https://www.unionpayintl.com/cardholderServ/serviceCenter/rate/                                     | 30 min  | High — form POST, session may be needed |
+| Visa           | `visa`       | https://www.visa.com.my/support/consumer/travel-support/exchange-rate-calculator.html               | 30 min  | Med — JSON endpoint |
+| Mastercard     | `mastercard` | https://www.mastercard.co.uk/en-gb/personal/get-support/convert-currency.html                       | 30 min  | Med |
+| Wise           | `wise`       | POST https://api.wise.com/v3/quotes (unauthenticated quote)                                         | 10 min  | Low |
+| Maybank        | `maybank`    | https://www.maybank2u.com.my/foreign-exchange-rates                                                 | 3 h     | Med |
+| CIMB           | `cimb`       | https://www.cimb.com.my/en/personal/help-support/rates/foreign-exchange-counter-rates.html          | 3 h     | Med |
+
+> ⚠️ "Refresh" above is our poll cadence, not how often the source itself publishes. Frankfurter is daily (ECB ~CET 16:00); Wise / banks change intraday; Maybank / CIMB update at most a couple of times per business day. Polling faster than the source updates is harmless (deduplicated by `(channel, fetched_at)` uniqueness conceptually — we store every snapshot but the displayed value just stays the same) but doesn't increase actual freshness.
 
 ### Fee model
 

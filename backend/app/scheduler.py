@@ -23,16 +23,25 @@ logger = logging.getLogger(__name__)
 # Server is in Singapore (OCI Singapore region). ai.schedule_cron in §10 is SGT.
 scheduler = AsyncIOScheduler(timezone="Asia/Singapore")
 
-# Per-channel refresh intervals (minutes). Source: CLAUDE.md §6.
+# Per-channel refresh intervals (minutes). Source: CLAUDE.md §6. These are
+# polite poll intervals — actual data freshness is bounded by how often the
+# upstream source itself publishes:
+#   - Frankfurter (midmarket): daily, around CET 16:00 (~SGT 22:00)
+#   - Wise: intraday, changes throughout the day
+#   - BOC: a few times per business day (Beijing time)
+#   - UnionPay / Visa / MC: intraday-ish
+#   - Maybank / CIMB: typically twice per business day (Malaysia time)
+# Polling more often than the source updates is harmless (we just write the
+# same snapshot) but doesn't actually make displayed numbers fresher.
 REFRESH_MINUTES: dict[str, int] = {
-    "midmarket": 30,
-    "wise": 30,
-    "boc": 30,
-    "unionpay": 60,
-    "visa": 60,
-    "mastercard": 60,
-    "maybank": 360,
-    "cimb": 360,
+    "midmarket": 10,
+    "wise": 10,
+    "boc": 15,
+    "unionpay": 30,
+    "visa": 30,
+    "mastercard": 30,
+    "maybank": 180,
+    "cimb": 180,
 }
 
 
