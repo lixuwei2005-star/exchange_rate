@@ -73,7 +73,7 @@ Each scraper must return rate as **MYR per 1 CNY**. Reference:
 | BOC        | CNY per 100 MYR, 4 columns                    | **现汇卖出价**                          | `100 / 现汇卖出价` |
 | UnionPay   | Static daily JSON entry `1 transCur = rateData × baseCur` | entry `transCur=MYR, baseCur=CNY` | `1 / rateData` |
 | Visa       | `originalValues.fxRateVisa` from cmsapi; **API silently swaps from/to** | trust `originalValues.fromCurrency/toCurrency`, invert if reversed | `fxRateVisa` (no markup) or `1 / fxRateVisa` if direction inverted |
-| Mastercard | Similar to Visa                               | CNY → MYR, then apply markup          | `response_rate * (1 - 0.02)` |
+| Mastercard | Similar to Visa                               | CNY → MYR                             | `response_rate` (no markup) |
 | Wise       | JSON `{rate}` where 1 source unit = X target  | `source=CNY&target=MYR`               | `response_rate` (already correct) |
 | CIMB       | MYR per N units foreign (section heading says `Per N Units of Foreign Currency`) | **CNY row Buying TT column ÷ multiplier** | `buying_tt / multiplier` (CNY is in the per-100 table → ÷100) |
 | Public Bank | MYR per N units foreign (multiplier baked into row label, e.g. `100 Chinese Renminbi (Non Trade)`) | **CNY row Buying TT column ÷ multiplier** | `buying_tt / 100` |

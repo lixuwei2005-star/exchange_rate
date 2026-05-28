@@ -9,16 +9,14 @@ import httpx
 from app.scrapers._common import make_client, to_decimal
 from app.scrapers.base import Scraper, ScraperError, ScrapeResult
 
-# CLAUDE.md §6 — verified 2026-05-27 # TODO recheck-2026-11
-MASTERCARD_ISSUER_MARKUP: Decimal = Decimal("0.02")
-
 
 class MastercardScraper(Scraper):
     """Mastercard currency-converter widget JSON endpoint.
 
-    Returns the network conversion rate; we apply the issuer markup on top.
-    Mastercard's calculator backend differs slightly across regions; the URL
-    here is the most commonly observed public endpoint.
+    Stores Mastercard's pure published network conversion rate, with no
+    issuer markup applied — see CLAUDE.md §6. Mastercard's calculator
+    backend differs slightly across regions; the URL here is the most
+    commonly observed public endpoint.
     """
 
     channel_code: ClassVar[str] = "mastercard"
@@ -49,7 +47,7 @@ class MastercardScraper(Scraper):
         except Exception as exc:
             raise ScraperError(f"mastercard: cannot parse rate {raw_rate!r}: {exc}") from exc
 
-        rate = (r * (Decimal("1") - MASTERCARD_ISSUER_MARKUP)).quantize(Decimal("0.00000001"))
+        rate = r.quantize(Decimal("0.00000001"))
         if base == "CNY" and quote == "MYR":
             self._sanity_check(rate)
         return ScrapeResult(
@@ -59,7 +57,6 @@ class MastercardScraper(Scraper):
             rate_type="card_network",
             raw_payload={
                 "network_rate": str(r),
-                "markup": str(MASTERCARD_ISSUER_MARKUP),
                 "raw": payload,
             },
         )

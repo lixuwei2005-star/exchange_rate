@@ -6,18 +6,15 @@ import httpx
 import pytest
 import respx
 
-from app.scrapers.mastercard import MASTERCARD_ISSUER_MARKUP, MastercardScraper
+from app.scrapers.mastercard import MastercardScraper
 
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_mastercard_applies_issuer_markup():
+async def test_mastercard_stores_pure_network_rate():
     respx.get("https://www.mastercard.us/settlement/currencyrate/conversion-rate").mock(
         return_value=httpx.Response(200, json={"data": {"conversionRate": "0.6655"}})
     )
     r = await MastercardScraper().fetch("CNY", "MYR")
-    expected = (Decimal("0.6655") * (Decimal("1") - MASTERCARD_ISSUER_MARKUP)).quantize(
-        Decimal("0.00000001")
-    )
-    assert r.rate == expected
+    assert r.rate == Decimal("0.6655").quantize(Decimal("0.00000001"))
     assert r.rate_type == "card_network"
