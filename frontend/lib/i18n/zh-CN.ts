@@ -10,7 +10,7 @@ export const zhCN = {
   heroPrefix: "1 MYR =",
   heroSuffix: "CNY",
   heroTooltip: "中间价为理论参考，不可直接换汇",
-  midmarketLabel: "中间价（参考）",
+  midmarketLabel: "中间市场汇率",
 
   // Amount input
   amountLabel: "我有",

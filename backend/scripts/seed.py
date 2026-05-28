@@ -29,7 +29,7 @@ CHANNELS = [
     {
         "code": "midmarket",
         "name_en": "Mid-market (Frankfurter)",
-        "name_zh": "中间价（参考）",
+        "name_zh": "中间市场汇率",
         "source_url": "https://api.frankfurter.dev/v1/latest?from=CNY&to=MYR",
     },
     {
@@ -109,11 +109,18 @@ async def seed() -> None:
                 session.add(Currency(**c))
 
         # channels: only midmarket starts active (Phase 4); admin flips the
-        # rest on as their scrapers come online.
+        # rest on as their scrapers come online. For existing rows we still
+        # refresh display fields (name_en / name_zh / source_url) so renaming
+        # propagates on next boot — but `active` is left alone since admin
+        # controls it after first run.
         for ch in CHANNELS:
             existing = await session.get(Channel, ch["code"])
             if existing is None:
                 session.add(Channel(active=(ch["code"] == "midmarket"), **ch))
+            else:
+                existing.name_en = ch["name_en"]
+                existing.name_zh = ch["name_zh"]
+                existing.source_url = ch["source_url"]
 
         # ai.* defaults
         for key, value in AI_DEFAULTS:
