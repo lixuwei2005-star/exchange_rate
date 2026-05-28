@@ -233,7 +233,7 @@ See §2 for direction and field selection. URLs below are starting points — ve
 | UnionPay Intl  | `unionpay`   | https://www.unionpayintl.com/cardholderServ/serviceCenter/rate/                                     | 60 min  | High — form POST, session may be needed |
 | Visa           | `visa`       | https://www.visa.com.my/support/consumer/travel-support/exchange-rate-calculator.html               | 60 min  | Med — JSON endpoint |
 | Mastercard     | `mastercard` | https://www.mastercard.co.uk/en-gb/personal/get-support/convert-currency.html                       | 60 min  | Med |
-| Wise           | `wise`       | https://api.wise.com/v1/rates?source=CNY&target=MYR                                                 | 30 min  | Low |
+| Wise           | `wise`       | POST https://api.wise.com/v3/quotes (unauthenticated quote)                                         | 30 min  | Low |
 | Maybank        | `maybank`    | https://www.maybank2u.com.my/foreign-exchange-rates                                                 | 6 h     | Med |
 | CIMB           | `cimb`       | https://www.cimb.com.my/en/personal/help-support/rates/foreign-exchange-counter-rates.html          | 6 h     | Med |
 
@@ -247,7 +247,7 @@ BOC_TT_FEE_CNY = 50            # BOC TT outbound flat fee. Source: BOC fee sched
 UNIONPAY_MARKUP = 0.0          # Markup already baked into UnionPay's quote.
 VISA_ISSUER_MARKUP = 0.02      # ~2% conservative; real value varies by issuer.
 MASTERCARD_ISSUER_MARKUP = 0.02
-WISE_FEE_DYNAMIC = True        # Wise API returns explicit fee per quote.
+WISE_FEE_DYNAMIC = True        # Wise API returns explicit fee per 1000-CNY reference quote; treat as roughly fixed for V1 display because Wise's real fee scales slightly with amount.
 MAYBANK_TT_FEE_MYR = 10        # approximate
 CIMB_TT_FEE_MYR = 10
 ```
