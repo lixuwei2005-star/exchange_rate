@@ -86,9 +86,8 @@ export default function HistoryChart({ days, title }: Props) {
 
   return (
     <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm md:p-5">
-      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+      <div className="mb-3">
         <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
-        <span className="text-xs text-neutral-400">{zhCN.chartSource}</span>
       </div>
       <div className="h-64 w-full">
         {loading ? (
@@ -118,7 +117,10 @@ export default function HistoryChart({ days, title }: Props) {
           </ResponsiveContainer>
         )}
       </div>
-      <p className="mt-2 text-xs text-neutral-400">{zhCN.chartUnit}</p>
+      <div className="mt-2 flex items-center justify-between text-xs text-neutral-400">
+        <span>{zhCN.chartUnit}</span>
+        <span>{zhCN.chartSource}</span>
+      </div>
     </section>
   );
 }

@@ -82,10 +82,7 @@ export default function IntradayChart() {
   return (
     <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm md:p-5">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-baseline gap-2">
-          <h2 className="text-sm font-semibold tracking-tight">{zhCN.chartTitleIntraday}</h2>
-          <span className="text-xs text-neutral-400">{zhCN.chartSourceWise}</span>
-        </div>
+        <h2 className="text-sm font-semibold tracking-tight">{zhCN.chartTitleIntraday}</h2>
         <div className="flex gap-1">
           {RANGES.map((h) => (
             <button
@@ -139,7 +136,10 @@ export default function IntradayChart() {
           </ResponsiveContainer>
         )}
       </div>
-      <p className="mt-2 text-xs text-neutral-400">{zhCN.chartUnit}</p>
+      <div className="mt-2 flex items-center justify-between text-xs text-neutral-400">
+        <span>{zhCN.chartUnit}</span>
+        <span>{zhCN.chartSourceWise}</span>
+      </div>
     </section>
   );
 }
