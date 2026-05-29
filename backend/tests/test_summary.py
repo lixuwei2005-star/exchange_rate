@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.models.ai_summary import AISummary
+from app.models.channel import Channel
 from app.models.rate_snapshot import RateSnapshot
 from app.services.settings import set_setting
 from app.services.summary import (
@@ -47,40 +48,86 @@ def _fake_completion(text: str, model: str = "fake-model"):
 
 
 @pytest.mark.asyncio
-async def test_regenerate_writes_summary_when_enabled(session):
-    # arrange: enable AI, configure provider, seed a snapshot
+async def test_regenerate_writes_summary_and_prompt_covers_active_providers(session):
+    # arrange: enable AI, configure provider
     await set_setting(session, "ai.enabled", "true")
     await set_setting(session, "ai.base_url", "https://fake/v1")
     await set_setting(session, "ai.api_key", "sk-fake")
     await set_setting(session, "ai.model", "fake-model")
     await session.commit()
 
-    session.add(
-        RateSnapshot(
-            channel_code="midmarket",
-            base_currency="CNY",
-            quote_currency="MYR",
-            rate=Decimal("0.65"),
-            rate_type="midmarket",
-            raw_payload={},
-            fetched_at=datetime.now(UTC) - timedelta(days=1),
-        )
+    # two active providers + one inactive one (must be excluded)
+    session.add_all(
+        [
+            Channel(code="midmarket", name_en="Mid", name_zh="中间市场汇率 1", active=True),
+            Channel(code="wise", name_en="Wise", name_zh="Wise", active=True),
+            Channel(code="off", name_en="Off", name_zh="停用渠道", active=False),
+        ]
+    )
+    now = datetime.now(UTC)
+    session.add_all(
+        [
+            RateSnapshot(
+                channel_code="midmarket",
+                base_currency="CNY",
+                quote_currency="MYR",
+                rate=Decimal("0.5800"),
+                rate_type="midmarket",
+                raw_payload={},
+                fetched_at=now - timedelta(days=20),
+            ),
+            RateSnapshot(
+                channel_code="midmarket",
+                base_currency="CNY",
+                quote_currency="MYR",
+                rate=Decimal("0.5830"),
+                rate_type="midmarket",
+                raw_payload={},
+                fetched_at=now - timedelta(hours=1),
+            ),
+            # Wise stores the after-fee rate; the headline is raw_payload["rate"].
+            RateSnapshot(
+                channel_code="wise",
+                base_currency="CNY",
+                quote_currency="MYR",
+                rate=Decimal("0.5750"),
+                rate_type="p2p",
+                raw_payload={"rate": 0.5850},
+                fetched_at=now - timedelta(hours=1),
+            ),
+            # Inactive channel — its snapshot must NOT reach the prompt.
+            RateSnapshot(
+                channel_code="off",
+                base_currency="CNY",
+                quote_currency="MYR",
+                rate=Decimal("0.5000"),
+                rate_type="midmarket",
+                raw_payload={},
+                fetched_at=now - timedelta(hours=1),
+            ),
+        ]
     )
     await session.commit()
 
-    fake_client = SimpleNamespace(
-        chat=SimpleNamespace(
-            completions=SimpleNamespace(
-                create=AsyncMock(return_value=_fake_completion("今日小幅上行，整体平稳。"))
-            )
-        )
+    create = AsyncMock(
+        return_value=_fake_completion("今日 Wise 最划算，1 MYR≈1.71 CNY，近30日小幅波动。")
     )
+    fake_client = SimpleNamespace(chat=SimpleNamespace(completions=SimpleNamespace(create=create)))
     with patch("app.services.summary.get_client", AsyncMock(return_value=fake_client)):
         row = await regenerate("CNY", "MYR")
+
     assert row is not None
     assert isinstance(row, AISummary)
     assert row.model_used == "fake-model"
-    assert "上行" in row.summary_zh
+
+    # The prompt now covers every active provider + the comparison instruction.
+    _, kwargs = create.call_args
+    user_msg = kwargs["messages"][1]["content"]
+    assert "中间市场汇率 1" in user_msg
+    assert "Wise" in user_msg
+    assert "停用渠道" not in user_msg  # inactive provider excluded
+    assert "1 MYR = X CNY" in user_msg  # display convention stated
+    assert "渠道" in user_msg  # instruction to compare channels
 
 
 @pytest.mark.asyncio

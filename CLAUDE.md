@@ -434,7 +434,8 @@ The AI provider is **configured at runtime via the admin backend**, not hardcode
 | `ai.system_prompt`           | (default below, editable)                  | no        | Multi-line Chinese text |
 | `ai.temperature`             | `0.2`                                      | no        | |
 | `ai.max_tokens`              | `120`                                      | no        | Hard cap so summary stays short |
-| `ai.schedule_cron`           | `0 9 * * *`                                | no        | When scheduler regenerates (SGT timezone) |
+| `ai.schedule_cron`           | `0 9 * * *`                                | no        | When scheduler regenerates (SGT). Weekly uses a day-of-week abbrev, e.g. `30 9 * * mon`. Composed by the `/admin/ai` 定时生成 panel (weekday + time). |
+| `ai.schedule_enabled`        | `false`                                    | no        | Master toggle for the auto-summary cron. The AI cron job is registered only when this AND `ai.enabled` are true. Editable from the `/admin/ai` 定时生成 toggle; changing it (or the cron/`ai.enabled`) reschedules the job in place. |
 | `ai.daily_budget_usd`        | `0.10`                                     | no        | Soft cap; pauses regen when exceeded |
 | `ai.cost_per_1k_input`       | `0.00015`                                  | no        | For budget estimation |
 | `ai.cost_per_1k_output`      | `0.0006`                                   | no        | For budget estimation |
@@ -457,8 +458,8 @@ The `openai` SDK transparently works against any OpenAI-compatible server. **Do 
 ### Summary flow
 
 1. Cron fires (or admin clicks "Regenerate now"), `services/summary.regenerate()` runs.
-2. Pull last 30 days of daily-aggregated `boc` + `midmarket` rates.
-3. Build a structured user message: today's rate, 7-day change %, 30-day change %, 30-day high/low.
+2. `_collect_stats` pulls the last 30 days for **every active channel** and builds: each provider's current rate as `1 MYR = X CNY` (= 1 / headline rate, so Wise uses its mid-market headline) with that channel's 7-/30-day change, plus a reference trend (7-/30-day change + 30-day range) taken from the channel with the deepest history. Returns None if no active channel has data.
+3. Build a structured user message: the per-provider table (sorted best-first), the reference trend, a note on the `1 MYR = X CNY` direction convention, and a one-line instruction (best channel + spread vs mid + 7/30-day trend, ≤ 80 chars). Headline-rate extraction is the shared `services/rates.headline_rate_for`.
 4. Send `[system_prompt, user_message]` to the configured model with `max_tokens` cap.
 5. Validate output: ≤ 80 Chinese characters, no emoji, no urgency words ("赶紧", "立刻", "立即"). On violation, retry once; if still bad, keep previous and log.
 6. Persist with `model_used`.

@@ -163,8 +163,8 @@ CHANNELS = [
     },
 ]
 
-DEFAULT_SYSTEM_PROMPT_ZH = """你是一个外汇市场分析助手，专门帮助在马来西亚的中国留学生理解人民币兑马币的汇率变化。
-根据用户提供的数据，用一句话（不超过 80 字）总结今日趋势。
+DEFAULT_SYSTEM_PROMPT_ZH = """你是一个外汇市场分析助手，专门帮助在马来西亚的中国留学生理解人民币兑马币的汇率。
+根据用户提供的各渠道今日汇率和近期走势，用一句话（不超过 80 字）总结：今日哪个渠道最划算，以及近 7 日 / 30 日的趋势。
 只描述事实，不给出"建议立即换汇""赶紧"等催促性建议。
 不使用表情符号。语气平实。"""
 
@@ -180,6 +180,9 @@ AI_DEFAULTS: list[tuple[str, str]] = [
     ("ai.temperature", "0.2"),
     ("ai.max_tokens", "120"),
     ("ai.schedule_cron", "0 9 * * *"),
+    # Master toggle for the auto-summary cron. Off by default so a fresh
+    # install never auto-generates until the admin opts in from /admin/ai.
+    ("ai.schedule_enabled", "false"),
     ("ai.daily_budget_usd", "0.10"),
     ("ai.cost_per_1k_input", "0.00015"),
     ("ai.cost_per_1k_output", "0.0006"),

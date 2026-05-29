@@ -20,7 +20,7 @@ from app.models.ai_summary import AISummary
 from app.models.channel import Channel
 from app.models.scrape_log import ScrapeLog
 from app.models.setting import Setting
-from app.scheduler import schedule_channel, unschedule_channel
+from app.scheduler import reschedule_ai_summary, schedule_channel, unschedule_channel
 from app.schemas.admin import (
     AITestResult,
     ChannelOut,
@@ -203,6 +203,10 @@ async def put_setting_endpoint(
     row = await set_setting(session, key, body.value)
     await session.commit()
     await session.refresh(row)
+    # Changing any AI-schedule input re-registers (or removes) the cron job in
+    # place, so the admin doesn't have to restart the backend.
+    if key in ("ai.enabled", "ai.schedule_enabled", "ai.schedule_cron"):
+        await reschedule_ai_summary()
     return SettingOut(
         key=row.key,
         value=MASKED if row.is_encrypted else row.value,

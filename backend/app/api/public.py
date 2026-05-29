@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -20,6 +19,8 @@ from app.schemas.public import (
     LatestRate,
     SummaryResponse,
 )
+from app.services.rates import as_utc as _as_utc
+from app.services.rates import headline_rate_for as _headline_rate_for
 from app.services.settings import get_setting
 
 router = APIRouter(prefix="/api", tags=["public"])
@@ -43,39 +44,6 @@ PER_CHANNEL_STALE_THRESHOLD: dict[str, timedelta] = {
 
 def _stale_threshold_for(channel_code: str) -> timedelta:
     return PER_CHANNEL_STALE_THRESHOLD.get(channel_code, STALE_THRESHOLD)
-
-
-def _as_utc(dt: datetime) -> datetime:
-    """SQLite drops tz info — treat naive datetimes from the DB as UTC."""
-    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
-
-
-def _headline_rate_for(snap: RateSnapshot) -> Decimal:
-    """Pre-fee advertised rate for the pure-rate comparison table.
-
-    For most channels the stored rate IS the headline (bank's quoted ask,
-    card network rate after issuer markup, etc.). Wise is the exception:
-    we store the after-fee effective rate, but Wise's actual advertised
-    rate is the mid-market value embedded in the quote response's top
-    level — extract it from raw_payload so the comparison is honest.
-    """
-    if snap.channel_code != "wise":
-        return snap.rate
-    raw = snap.raw_payload if isinstance(snap.raw_payload, dict) else {}
-    direct = raw.get("rate")
-    if direct is not None:
-        try:
-            return Decimal(str(direct))
-        except Exception:
-            pass
-    # reverse_pair fallback shape: raw_payload = {"reverse_payload": {"rate": ...}}
-    rev = raw.get("reverse_payload")
-    if isinstance(rev, dict) and rev.get("rate") is not None:
-        try:
-            return (Decimal("1") / Decimal(str(rev["rate"]))).quantize(Decimal("0.00000001"))
-        except Exception:
-            pass
-    return snap.rate
 
 
 @router.get("/config", response_model=ConfigResponse)

@@ -7,6 +7,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import SessionLocal
 from app.models.channel import Channel
@@ -88,22 +89,10 @@ async def _seed_active_jobs() -> None:
         rows = await session.execute(select(Channel).where(Channel.active.is_(True)))
         active_channels = [ch for ch in rows.scalars() if ch.code in ALL_SCRAPERS]
 
-        # AI cron (CLAUDE.md §10). Uses the SGT timezone configured on the
-        # scheduler. Skipped if `ai.enabled` is false or cron is empty.
-        if (await get_setting(session, "ai.enabled", "false")).lower() == "true":
-            cron = (await get_setting(session, "ai.schedule_cron", "")).strip()
-            if cron:
-                try:
-                    scheduler.add_job(
-                        _ai_summary_job,
-                        trigger=CronTrigger.from_crontab(cron, timezone="Asia/Singapore"),
-                        id="ai:summary",
-                        replace_existing=True,
-                        coalesce=True,
-                    )
-                    logger.info("scheduled ai:summary on cron %r SGT", cron)
-                except Exception as exc:
-                    logger.warning("ai.schedule_cron %r is invalid: %s", cron, exc)
+        # AI auto-summary cron (CLAUDE.md §10): added only when both the AI
+        # master switch (ai.enabled) and the schedule toggle (ai.schedule_enabled)
+        # are on, with a valid cron. Uses the scheduler's SGT timezone.
+        await _apply_ai_schedule(session)
 
     for ch in active_channels:
         _add_job(ch.code, _trigger_for(ch))
@@ -115,6 +104,53 @@ async def _seed_active_jobs() -> None:
 
 async def _ai_summary_job() -> None:
     await regenerate_summary("CNY", "MYR")
+
+
+AI_SUMMARY_JOB_ID = "ai:summary"
+
+
+async def _apply_ai_schedule(session: AsyncSession) -> None:
+    """Add or remove the AI auto-summary job to match current settings.
+
+    The job exists only when ai.enabled AND ai.schedule_enabled are both true
+    and ai.schedule_cron parses. Otherwise it's removed. The cron is a standard
+    5-field crontab in SGT; a weekly schedule uses a day-of-week abbreviation
+    (e.g. `30 9 * * mon`) written by the admin UI.
+    """
+    enabled = (await get_setting(session, "ai.enabled", "false")).lower() == "true"
+    sched_on = (await get_setting(session, "ai.schedule_enabled", "false")).lower() == "true"
+    cron = (await get_setting(session, "ai.schedule_cron", "")).strip()
+    if enabled and sched_on and cron:
+        try:
+            scheduler.add_job(
+                _ai_summary_job,
+                trigger=CronTrigger.from_crontab(cron, timezone="Asia/Singapore"),
+                id=AI_SUMMARY_JOB_ID,
+                replace_existing=True,
+                coalesce=True,
+            )
+            logger.info("scheduled %s on cron %r SGT", AI_SUMMARY_JOB_ID, cron)
+            return
+        except Exception as exc:
+            logger.warning("ai.schedule_cron %r is invalid: %s", cron, exc)
+    if scheduler.get_job(AI_SUMMARY_JOB_ID):
+        scheduler.remove_job(AI_SUMMARY_JOB_ID)
+        logger.info(
+            "removed %s (ai.enabled=%s ai.schedule_enabled=%s)",
+            AI_SUMMARY_JOB_ID,
+            enabled,
+            sched_on,
+        )
+
+
+async def reschedule_ai_summary() -> None:
+    """Re-evaluate the AI auto-summary schedule from settings. Called by the
+    admin settings endpoint after ai.enabled / ai.schedule_enabled /
+    ai.schedule_cron change. No-op when the scheduler isn't running."""
+    if not scheduler.running:
+        return
+    async with SessionLocal() as session:
+        await _apply_ai_schedule(session)
 
 
 async def _retention_job() -> None:
