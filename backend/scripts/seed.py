@@ -73,6 +73,16 @@ CHANNELS = [
         "daily_time_cn": None,
     },
     {
+        "code": "icbc",
+        "name_en": "ICBC",
+        "name_zh": "中国工商银行",
+        # SPA page; we hit the JSON API it calls. See app/scrapers/icbc.py.
+        "source_url": "https://www.icbc.com.cn/column/1438058341489590354.html",
+        "schedule_kind": "interval",
+        "interval_minutes": 30,
+        "daily_time_cn": None,
+    },
+    {
         "code": "unionpay",
         "name_en": "UnionPay International",
         "name_zh": "银联国际",

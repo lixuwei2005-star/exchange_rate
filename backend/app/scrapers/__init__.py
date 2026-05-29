@@ -5,6 +5,7 @@ from app.scrapers.base import Scraper, ScraperError, ScrapeResult
 from app.scrapers.boc import BOCScraper
 from app.scrapers.cimb import CIMBScraper
 from app.scrapers.hlb import HLBScraper
+from app.scrapers.icbc import ICBCScraper
 from app.scrapers.mastercard import MastercardScraper
 from app.scrapers.midmarket import MidmarketScraper
 from app.scrapers.midmarket2 import Midmarket2Scraper
@@ -25,6 +26,7 @@ ALL_SCRAPERS: dict[str, type[Scraper]] = {
     "midmarket2": Midmarket2Scraper,
     "midmarket3": Midmarket3Scraper,
     "boc": BOCScraper,
+    "icbc": ICBCScraper,
     "unionpay": UnionPayScraper,
     "visa": VisaScraper,
     "mastercard": MastercardScraper,
