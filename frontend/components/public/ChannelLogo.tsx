@@ -17,7 +17,7 @@ const LOGO_FILES: Record<string, string> = {
   visa: "visa.png",
   mastercard: "mastercard.png",
   boc: "boc.png",
-  icbc: "Industrial_and_Commercial_Bank_of_China-Logo.wine.png",
+  icbc: "icbc.png",
   unionpay: "unionpay.png",
   publicbank: "publicbank.png",
   cimb: "cimb.png",
