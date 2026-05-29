@@ -120,6 +120,11 @@ export type PublicConfig = {
   headline_channel: string;
 };
 
+export type IntradayPoint = {
+  time: string; // ISO timestamp (UTC)
+  rate: string; // decimal as string (MYR per 1 CNY)
+};
+
 export type SummaryResponse = {
   summary_zh: string | null;
   generated_at: string | null;
@@ -195,6 +200,10 @@ export const api = {
   ratesHistory: (channel: string, days = 30, base = "CNY", quote = "MYR") =>
     apiFetch<HistoryPoint[]>(
       `/api/rates/history?channel=${channel}&days=${days}&base=${base}&quote=${quote}`,
+    ),
+  ratesIntraday: (channel: string, hours = 72, base = "CNY", quote = "MYR") =>
+    apiFetch<IntradayPoint[]>(
+      `/api/rates/intraday?channel=${channel}&hours=${hours}&base=${base}&quote=${quote}`,
     ),
   summary: (base = "CNY", quote = "MYR") =>
     apiFetch<SummaryResponse>(`/api/summary?base=${base}&quote=${quote}`),

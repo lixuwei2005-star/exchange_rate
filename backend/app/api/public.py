@@ -16,6 +16,7 @@ from app.schemas.public import (
     ConfigResponse,
     HealthResponse,
     HistoryPoint,
+    IntradayPoint,
     LatestRate,
     SummaryResponse,
 )
@@ -194,6 +195,35 @@ async def rates_history(
         # keeping the last (latest within day) thanks to ascending order
         by_day[day] = s
     return [HistoryPoint(date=d, rate=s.rate) for d, s in sorted(by_day.items())]
+
+
+@router.get("/rates/intraday", response_model=list[IntradayPoint])
+async def rates_intraday(
+    session: Annotated[AsyncSession, Depends(get_session)],
+    base: str = Query("CNY"),
+    quote: str = Query("MYR"),
+    channel: str = Query(...),
+    hours: int = Query(72, ge=1, le=168),
+) -> list[IntradayPoint]:
+    """Every raw snapshot in the last `hours` (NOT bucketed per day, unlike
+    /rates/history) for fine-grained intraday charts — e.g. Wise, which we
+    poll every ~10 min. Returns the channel's headline rate per point so the
+    line matches the comparison table (mid-market for Wise)."""
+    cutoff = datetime.now(UTC) - timedelta(hours=hours)
+    q = (
+        select(RateSnapshot)
+        .where(
+            and_(
+                RateSnapshot.channel_code == channel,
+                RateSnapshot.base_currency == base,
+                RateSnapshot.quote_currency == quote,
+                RateSnapshot.fetched_at >= cutoff,
+            )
+        )
+        .order_by(RateSnapshot.fetched_at)
+    )
+    snaps = list((await session.execute(q)).scalars())
+    return [IntradayPoint(time=_as_utc(s.fetched_at), rate=_headline_rate_for(s)) for s in snaps]
 
 
 @router.get("/summary", response_model=SummaryResponse)

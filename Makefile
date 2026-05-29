@@ -1,4 +1,4 @@
-.PHONY: dev backend frontend test lint fmt migrate seed backfill-unionpay scrape-once scrape summary-now logs deploy fernet-key down clean help prod prod-down prod-logs prod-backend-rebuild
+.PHONY: dev backend frontend test lint fmt migrate seed backfill-unionpay backfill-wise scrape-once scrape summary-now logs deploy fernet-key down clean help prod prod-down prod-logs prod-backend-rebuild
 
 # Default target: show help.
 help:
@@ -14,6 +14,7 @@ help:
 	@echo "  make migrate      alembic upgrade head"
 	@echo "  make seed         populate currencies + channels + admin + ai.* settings"
 	@echo "  make backfill-unionpay  backfill UnionPay's last 30 days into history (idempotent)"
+	@echo "  make backfill-wise      backfill Wise's recent hourly history (idempotent)"
 	@echo ""
 	@echo "  make test         pytest + vitest"
 	@echo "  make lint         ruff + black --check + eslint + prettier --check"
@@ -82,6 +83,11 @@ seed:
 # without waiting for the scheduler to accumulate 30 days.
 backfill-unionpay:
 	docker compose exec backend python scripts/backfill_unionpay.py
+
+# Backfill Wise's recent hourly history (idempotent). Seeds the intraday
+# 24h/72h chart; the 10-min scraper keeps it fresh afterwards.
+backfill-wise:
+	docker compose exec backend python scripts/backfill_wise.py
 
 # ---------------------------------------------------------------------------
 # Tests + lint

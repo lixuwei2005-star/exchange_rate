@@ -386,6 +386,8 @@ Indexes:
   → `[{channel_code, rate, rate_type, fee_estimate, fee_currency, fetched_at, is_stale}]`
 - `GET /api/rates/history?base=CNY&quote=MYR&channel=boc&days=30`
   → `[{date, rate}]`, one point per day (latest snapshot of that day).
+- `GET /api/rates/intraday?base=CNY&quote=MYR&channel=wise&hours=72`
+  → `[{time, rate}]`, **every** raw snapshot in the window (NOT day-bucketed), ascending, using the channel's headline rate. For the homepage's intraday Wise chart. `hours` ∈ [1, 168].
 - `GET /api/summary?base=CNY&quote=MYR`
   → `{summary_zh, generated_at, model_used}`
 - `GET /api/config`
@@ -520,7 +522,7 @@ Mobile-first layout:
 3. Input: "我有 [____] CNY，能换多少 MYR？" — number input, default 1000, debounce 300ms, persists in localStorage.
 4. AI summary: one sentence, italic gray, under hero.
 5. Comparison table: sortable by "你能拿到". Columns: 渠道, 汇率 (CNY per MYR for display), 手续费, 你能拿到 (MYR), 更新于. Stale rows greyed out with "暂时不可用".
-6. Charts: two stacked line charts — **近 30 日趋势** (days=30) and **近一年趋势** (days=365) — hover tooltip. **Single source: UnionPay International** (no channel tab strip) — UnionPay publishes a per-date JSON so history can be backfilled immediately (`scripts/backfill_unionpay.py --days 365`) instead of waiting for the scraper to accumulate it. Plotted as `1 MYR = X CNY` (= 1 / stored MYR-per-CNY rate). Lifecycle: backfill a year **once**, then the daily UnionPay cron appends each new day; the charts just window to the last N days. Retention (§8) only collapses *intra-day duplicates*, and UnionPay has one snapshot/day, so daily points survive indefinitely — no re-backfill needed.
+6. Charts: three stacked line charts. Top: **实时趋势** — intraday Wise line with a **24h / 72h toggle** (`/api/rates/intraday`, seeded by `scripts/backfill_wise.py`, kept fresh by the 10-min scraper; numeric time x-axis). Below it: **近 30 日趋势** (days=30) and **近一年趋势** (days=365) — hover tooltip. The two daily/yearly charts use **Single source: UnionPay International** (no channel tab strip) — UnionPay publishes a per-date JSON so history can be backfilled immediately (`scripts/backfill_unionpay.py --days 365`) instead of waiting for the scraper to accumulate it. Plotted as `1 MYR = X CNY` (= 1 / stored MYR-per-CNY rate). Lifecycle: backfill a year **once**, then the daily UnionPay cron appends each new day; the charts just window to the last N days. Retention (§8) only collapses *intra-day duplicates*, and UnionPay has one snapshot/day, so daily points survive indefinitely — no re-backfill needed.
 7. Footer: disclaimer (§13), data sources list, last-updated.
 
 **No analytics, no tracking, no Google Fonts, no third-party scripts.** Cloudflare's built-in analytics only.
@@ -553,6 +555,7 @@ make seed                   # populate currencies + channels + admin user
 make scrape-once            # run all scrapers once
 make scrape CHANNEL=boc     # one channel only
 make backfill-unionpay      # backfill UnionPay's last 30 days into history (idempotent)
+make backfill-wise          # backfill Wise's recent hourly history (idempotent)
 make summary-now            # regenerate AI summary now using current admin settings
 make logs                   # tail backend logs in production
 make deploy                 # ssh OCI, git pull, docker compose up -d --build

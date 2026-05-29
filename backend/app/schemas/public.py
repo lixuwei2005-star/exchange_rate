@@ -36,6 +36,13 @@ class HistoryPoint(BaseModel):
     rate: Decimal
 
 
+class IntradayPoint(BaseModel):
+    # Raw (un-bucketed) snapshot for fine-grained intraday charts. `time` is
+    # the snapshot's fetched_at (UTC); `rate` is the channel's headline rate.
+    time: datetime
+    rate: Decimal
+
+
 class SummaryResponse(BaseModel):
     summary_zh: str | None
     generated_at: datetime | None

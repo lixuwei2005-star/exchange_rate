@@ -37,6 +37,9 @@ export const zhCN = {
   daysAgo: "天前",
 
   // Chart
+  chartTitleIntraday: "实时趋势",
+  chartSourceWise: "数据源：Wise",
+  unitHour: "小时",
   chartTitle: "近 30 日趋势",
   chartTitleYear: "近一年趋势",
   chartSource: "数据源：银联国际",
