@@ -140,6 +140,15 @@ CHANNELS = [
         "interval_minutes": 180,
         "daily_time_cn": None,
     },
+    {
+        "code": "hlb",
+        "name_en": "Hong Leong Bank",
+        "name_zh": "丰隆银行",
+        "source_url": "https://www.hlb.com.my/en/global-markets/forex-rates.html",
+        "schedule_kind": "interval",
+        "interval_minutes": 180,
+        "daily_time_cn": None,
+    },
 ]
 
 DEFAULT_SYSTEM_PROMPT_ZH = """你是一个外汇市场分析助手，专门帮助在马来西亚的中国留学生理解人民币兑马币的汇率变化。

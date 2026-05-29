@@ -21,6 +21,7 @@ const LOGO_FILES: Record<string, string> = {
   publicbank: "publicbank.png",
   cimb: "cimb.png",
   rhb: "rhb.png",
+  hlb: "hong-leong-bank-seeklogo.png",
 };
 
 export default function ChannelLogo({ code }: { code: string }) {
