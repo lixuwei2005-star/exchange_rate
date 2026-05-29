@@ -22,6 +22,13 @@ import { zhCN } from "@/lib/i18n/zh-CN";
 // 1 / rate.
 const CHANNEL = "unionpay";
 
+type Props = {
+  /** Window length in days (e.g. 30 or 365). */
+  days: number;
+  /** Heading shown above the chart. */
+  title: string;
+};
+
 type Point = { date: string; value: number };
 
 function CustomTooltip({
@@ -44,7 +51,7 @@ function CustomTooltip({
   );
 }
 
-export default function HistoryChart() {
+export default function HistoryChart({ days, title }: Props) {
   const [points, setPoints] = useState<HistoryPoint[]>([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -54,7 +61,7 @@ export default function HistoryChart() {
     setLoading(true);
     setErr(null);
     api
-      .ratesHistory(CHANNEL, 30, "CNY", "MYR")
+      .ratesHistory(CHANNEL, days, "CNY", "MYR")
       .then((data) => {
         if (!cancelled) setPoints(data);
       })
@@ -67,7 +74,7 @@ export default function HistoryChart() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [days]);
 
   // Stored rate is MYR per 1 CNY; the site displays 1 MYR = X CNY ⇒ plot 1/rate.
   const data: Point[] = points
@@ -80,7 +87,7 @@ export default function HistoryChart() {
   return (
     <section className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm md:p-5">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="text-sm font-semibold tracking-tight">{zhCN.chartTitle}</h2>
+        <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
         <span className="text-xs text-neutral-400">{zhCN.chartSource}</span>
       </div>
       <div className="h-64 w-full">
@@ -98,7 +105,7 @@ export default function HistoryChart() {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
+              <XAxis dataKey="date" tick={{ fontSize: 11 }} minTickGap={48} />
               <YAxis
                 tick={{ fontSize: 11 }}
                 domain={["auto", "auto"]}

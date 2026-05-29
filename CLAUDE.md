@@ -520,7 +520,7 @@ Mobile-first layout:
 3. Input: "我有 [____] CNY，能换多少 MYR？" — number input, default 1000, debounce 300ms, persists in localStorage.
 4. AI summary: one sentence, italic gray, under hero.
 5. Comparison table: sortable by "你能拿到". Columns: 渠道, 汇率 (CNY per MYR for display), 手续费, 你能拿到 (MYR), 更新于. Stale rows greyed out with "暂时不可用".
-6. Chart: 30-day line, hover tooltip. **Single source: UnionPay International** (no channel tab strip) — UnionPay publishes a per-date JSON so its 30-day history can be backfilled immediately (`scripts/backfill_unionpay.py`) instead of waiting for the scraper to accumulate it. Plotted as `1 MYR = X CNY` (= 1 / stored MYR-per-CNY rate) to match the rest of the site.
+6. Charts: two stacked line charts — **近 30 日趋势** (days=30) and **近一年趋势** (days=365) — hover tooltip. **Single source: UnionPay International** (no channel tab strip) — UnionPay publishes a per-date JSON so history can be backfilled immediately (`scripts/backfill_unionpay.py --days 365`) instead of waiting for the scraper to accumulate it. Plotted as `1 MYR = X CNY` (= 1 / stored MYR-per-CNY rate). Lifecycle: backfill a year **once**, then the daily UnionPay cron appends each new day; the charts just window to the last N days. Retention (§8) only collapses *intra-day duplicates*, and UnionPay has one snapshot/day, so daily points survive indefinitely — no re-backfill needed.
 7. Footer: disclaimer (§13), data sources list, last-updated.
 
 **No analytics, no tracking, no Google Fonts, no third-party scripts.** Cloudflare's built-in analytics only.

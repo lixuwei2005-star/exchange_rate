@@ -6,6 +6,7 @@ import AmountInput from "@/components/public/AmountInput";
 import ChannelTable from "@/components/public/ChannelTable";
 import HistoryChart from "@/components/public/HistoryChart";
 import type { LatestRate } from "@/lib/api";
+import { zhCN } from "@/lib/i18n/zh-CN";
 
 type Props = {
   initialRates: LatestRate[];
@@ -20,8 +21,9 @@ export default function HomeContent({ initialRates }: Props) {
         <AmountInput onChangeDebounced={setAmount} />
       </div>
       <ChannelTable rows={initialRates} amountCny={amount} />
-      {/* Single-source trend chart (UnionPay International) — see HistoryChart. */}
-      <HistoryChart />
+      {/* Single-source trend charts (UnionPay International) — see HistoryChart. */}
+      <HistoryChart days={30} title={zhCN.chartTitle} />
+      <HistoryChart days={365} title={zhCN.chartTitleYear} />
     </div>
   );
 }

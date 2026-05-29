@@ -38,6 +38,7 @@ export const zhCN = {
 
   // Chart
   chartTitle: "近 30 日趋势",
+  chartTitleYear: "近一年趋势",
   chartSource: "数据源：银联国际",
   chartUnit: "1 MYR = X CNY",
   noHistoryData: "暂无历史数据",
