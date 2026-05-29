@@ -149,6 +149,18 @@ CHANNELS = [
         "interval_minutes": 180,
         "daily_time_cn": None,
     },
+    {
+        "code": "alliance",
+        "name_en": "Alliance Bank",
+        "name_zh": "联盟银行",
+        "source_url": (
+            "https://www.allianceonline.com.my/personal/rate_charges/"
+            "foreign_exchange_rate_kiosk_view.do"
+        ),
+        "schedule_kind": "interval",
+        "interval_minutes": 180,
+        "daily_time_cn": None,
+    },
 ]
 
 DEFAULT_SYSTEM_PROMPT_ZH = """你是一个外汇市场分析助手，专门帮助在马来西亚的中国留学生理解人民币兑马币的汇率变化。

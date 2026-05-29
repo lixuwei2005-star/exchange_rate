@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.scrapers.alliance import AllianceScraper
 from app.scrapers.base import Scraper, ScraperError, ScrapeResult
 from app.scrapers.boc import BOCScraper
 from app.scrapers.cimb import CIMBScraper
@@ -32,6 +33,7 @@ ALL_SCRAPERS: dict[str, type[Scraper]] = {
     "publicbank": PublicBankScraper,
     "rhb": RHBScraper,
     "hlb": HLBScraper,
+    "alliance": AllianceScraper,
 }
 
 __all__ = [
