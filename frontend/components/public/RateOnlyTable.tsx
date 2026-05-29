@@ -1,5 +1,5 @@
 import type { LatestRate } from "@/lib/api";
-import { displayCnyPerMyr } from "@/lib/format";
+import { displayCnyPerMyr, relativeTimeZh } from "@/lib/format";
 import { zhCN } from "@/lib/i18n/zh-CN";
 
 import ChannelLogo from "./ChannelLogo";
@@ -41,29 +41,37 @@ export default function RateOnlyTable({ rows }: { rows: LatestRate[] }) {
         <h2 className="text-sm font-semibold tracking-tight">{zhCN.rateOnlyTitle}</h2>
         <p className="mt-1 text-xs leading-relaxed text-neutral-500">{zhCN.rateOnlyHint}</p>
       </header>
-      <table className="w-full text-sm">
-        <thead className="text-left text-xs uppercase tracking-wider text-neutral-400">
-          <tr>
-            <th className="px-4 py-2.5 font-medium">{zhCN.tableHeaderChannel}</th>
-            <th className="px-4 py-2.5 text-right font-medium">{zhCN.tableHeaderRate}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sorted.map((r) => (
-            <tr key={r.channel_code} className="border-t border-neutral-100">
-              <td className="px-4 py-3">
-                <span className="flex items-center gap-2.5">
-                  {r.channel_name_zh}
-                  <ChannelLogo code={r.channel_code} />
-                </span>
-              </td>
-              <td className="px-4 py-3 text-right font-medium tabular-nums">
-                {displayCnyPerMyr(r.headline_rate)}
-              </td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="text-left text-xs uppercase tracking-wider text-neutral-400">
+            <tr>
+              <th className="px-4 py-2.5 font-medium">{zhCN.tableHeaderChannel}</th>
+              <th className="px-4 py-2.5 text-right font-medium">{zhCN.tableHeaderRate}</th>
+              <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">
+                {zhCN.tableHeaderUpdated}
+              </th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {sorted.map((r) => (
+              <tr key={r.channel_code} className="border-t border-neutral-100">
+                <td className="px-4 py-3">
+                  <span className="flex items-center gap-2.5">
+                    {r.channel_name_zh}
+                    <ChannelLogo code={r.channel_code} />
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-right font-medium tabular-nums">
+                  {displayCnyPerMyr(r.headline_rate)}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-right text-xs text-neutral-400">
+                  {zhCN.updatedAtPrefix} {relativeTimeZh(r.fetched_at)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </section>
   );
 }

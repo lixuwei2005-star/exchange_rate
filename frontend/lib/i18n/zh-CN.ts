@@ -26,6 +26,8 @@ export const zhCN = {
   tableHeaderChannel: "渠道",
   tableHeaderRate: "汇率（1 MYR = X CNY）",
   tableHeaderReceive: "你能拿到 (MYR)",
+  tableHeaderUpdated: "最后更新",
+  updatedAtPrefix: "更新于",
   unavailable: "暂时不可用",
 
   // Times
