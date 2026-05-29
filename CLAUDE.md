@@ -388,6 +388,8 @@ Indexes:
   → `[{date, rate}]`, one point per day (latest snapshot of that day).
 - `GET /api/summary?base=CNY&quote=MYR`
   → `{summary_zh, generated_at, model_used}`
+- `GET /api/config`
+  → `{headline_channel}` — which channel feeds the homepage hero. Sourced from the `display.headline_channel` setting (default `midmarket`). Non-sensitive presentation state, no auth.
 - `GET /api/health`
   → `{ok, channels: {boc: "fresh"|"stale", ...}}`
 
@@ -484,7 +486,7 @@ Track per-day cumulative cost in a small in-memory counter (reset at SGT 00:00).
 |---------------------|------------------------------------------------------------------------|
 | `/admin/login`      | Username + password form. POSTs to `/api/admin/login`, redirects.       |
 | `/admin`            | Dashboard. Cards: snapshots today, stale channels, last AI summary, recent errors. |
-| `/admin/channels`   | Table: code, name_zh, status (fresh/stale/disabled), schedule (每 N 分钟 / 每天 HH:MM 东八区), last success, last error, [调度] inline editor, [Active] toggle, [Scrape now]. Editing schedule re-registers the APScheduler job in place — no restart needed. |
+| `/admin/channels`   | Top: **首页大数字汇率来源** selector — picks which active channel feeds the homepage hero (writes `display.headline_channel`). Below: table of code, name_zh, status (fresh/stale/disabled), schedule (每 N 分钟 / 每天 HH:MM 东八区), last success, last error, [调度] inline editor, [Active] toggle, [Scrape now]. Editing schedule re-registers the APScheduler job in place — no restart needed. |
 | `/admin/ai`         | Form for all `ai.*` settings. API key field shows `***`; only POSTs new value if user types. [Test connection] button. [Regenerate now]. Shows last 5 summaries. |
 | `/admin/logs`       | Last 200 scrape_logs rows, filter by level. Text dump, no fancy viewer. |
 
@@ -514,7 +516,7 @@ Server Component with `revalidate = 300` (5 min ISR). A Client Component handles
 Mobile-first layout:
 
 1. Header: site title, "数据更新于 N 分钟前", GitHub link.
-2. Hero: `1 MYR = X.XXXX CNY` — large, mid-market reference, tooltip explaining "理论中间价，不可直接换汇".
+2. Hero: `1 MYR = X.XXXX CNY` — large. Sourced from the admin-selected `display.headline_channel` (default `midmarket`, fetched via `/api/config`); the label above the number is that channel's `name_zh`. Falls back to midmarket if the chosen channel has no fresh snapshot.
 3. Input: "我有 [____] CNY，能换多少 MYR？" — number input, default 1000, debounce 300ms, persists in localStorage.
 4. AI summary: one sentence, italic gray, under hero.
 5. Comparison table: sortable by "你能拿到". Columns: 渠道, 汇率 (CNY per MYR for display), 手续费, 你能拿到 (MYR), 更新于. Stale rows greyed out with "暂时不可用".

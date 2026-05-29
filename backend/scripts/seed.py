@@ -164,6 +164,13 @@ AI_DEFAULTS: list[tuple[str, str]] = [
     ("ai.cost_per_1k_output", "0.0006"),
 ]
 
+# Public display config. `display.headline_channel` picks which channel's rate
+# the homepage hero ("1 MYR = X CNY") shows; admin changes it from
+# /admin/channels. Defaults to the mid-market reference.
+DISPLAY_DEFAULTS: list[tuple[str, str]] = [
+    ("display.headline_channel", "midmarket"),
+]
+
 
 async def seed() -> None:
     s = get_settings()
@@ -188,8 +195,8 @@ async def seed() -> None:
                 existing.name_zh = ch["name_zh"]
                 existing.source_url = ch["source_url"]
 
-        # ai.* defaults
-        for key, value in AI_DEFAULTS:
+        # ai.* + display.* defaults
+        for key, value in (*AI_DEFAULTS, *DISPLAY_DEFAULTS):
             await ensure_default(session, key, value)
 
         # admin user

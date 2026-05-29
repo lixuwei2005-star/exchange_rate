@@ -45,3 +45,9 @@ class SummaryResponse(BaseModel):
 class HealthResponse(BaseModel):
     ok: bool
     channels: dict[str, str]  # channel_code -> "fresh" | "stale"
+
+
+class ConfigResponse(BaseModel):
+    # Which channel's rate the homepage hero ("1 MYR = X CNY") shows.
+    # Admin-editable via settings key `display.headline_channel`.
+    headline_channel: str

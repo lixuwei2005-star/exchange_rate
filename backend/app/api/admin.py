@@ -188,6 +188,18 @@ async def put_setting_endpoint(
             is_encrypted=existing.is_encrypted,
             updated_at=existing.updated_at,
         )
+
+    # The homepage hero can only point at a channel that actually produces
+    # data, so reject codes that don't exist or are inactive.
+    if key == "display.headline_channel":
+        ch = await session.get(Channel, body.value)
+        if ch is None:
+            raise HTTPException(status_code=400, detail=f"unknown channel code: {body.value}")
+        if not ch.active:
+            raise HTTPException(
+                status_code=400, detail=f"channel '{body.value}' is inactive; activate it first"
+            )
+
     row = await set_setting(session, key, body.value)
     await session.commit()
     await session.refresh(row)

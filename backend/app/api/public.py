@@ -12,9 +12,21 @@ from app.db import get_session
 from app.models.ai_summary import AISummary
 from app.models.channel import Channel
 from app.models.rate_snapshot import RateSnapshot
-from app.schemas.public import HealthResponse, HistoryPoint, LatestRate, SummaryResponse
+from app.schemas.public import (
+    ConfigResponse,
+    HealthResponse,
+    HistoryPoint,
+    LatestRate,
+    SummaryResponse,
+)
+from app.services.settings import get_setting
 
 router = APIRouter(prefix="/api", tags=["public"])
+
+# Which channel feeds the homepage hero ("1 MYR = X CNY"). Admin overrides it
+# via the `display.headline_channel` setting; this is the install default.
+HEADLINE_CHANNEL_KEY = "display.headline_channel"
+DEFAULT_HEADLINE_CHANNEL = "midmarket"
 
 # A snapshot is considered "stale" if its last_success is older than this.
 # Default tracks the slowest intraday channel; daily channels need a longer
@@ -63,6 +75,16 @@ def _headline_rate_for(snap: RateSnapshot) -> Decimal:
         except Exception:
             pass
     return snap.rate
+
+
+@router.get("/config", response_model=ConfigResponse)
+async def public_config(
+    session: Annotated[AsyncSession, Depends(get_session)],
+) -> ConfigResponse:
+    """Public display config. Currently just which channel the homepage hero
+    rate is sourced from. No auth — it's non-sensitive presentation state."""
+    code = await get_setting(session, HEADLINE_CHANNEL_KEY, DEFAULT_HEADLINE_CHANNEL)
+    return ConfigResponse(headline_channel=code or DEFAULT_HEADLINE_CHANNEL)
 
 
 @router.get("/health", response_model=HealthResponse)

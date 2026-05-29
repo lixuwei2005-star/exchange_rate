@@ -2,7 +2,7 @@ import HomeContent from "@/components/public/HomeContent";
 import RateHeadline from "@/components/public/RateHeadline";
 import RateOnlyTable from "@/components/public/RateOnlyTable";
 import SiteTitle from "@/components/public/SiteTitle";
-import { api, type LatestRate, type SummaryResponse } from "@/lib/api";
+import { api, type LatestRate, type PublicConfig, type SummaryResponse } from "@/lib/api";
 import { relativeTimeZh } from "@/lib/format";
 import { zhCN } from "@/lib/i18n/zh-CN";
 
@@ -23,16 +23,24 @@ async function safeFetch<T>(promise: Promise<T>, fallback: T): Promise<T> {
 }
 
 export default async function HomePage() {
-  const [rates, summary] = await Promise.all([
+  const [rates, summary, config] = await Promise.all([
     safeFetch<LatestRate[]>(api.ratesLatest("CNY", "MYR"), []),
     safeFetch<SummaryResponse>(api.summary("CNY", "MYR"), {
       summary_zh: null,
       generated_at: null,
       model_used: null,
     }),
+    safeFetch<PublicConfig>(api.config(), { headline_channel: "midmarket" }),
   ]);
 
-  const midmarket = rates.find((r) => r.channel_code === "midmarket");
+  // The hero shows the admin-chosen channel's headline rate. Prefer a fresh
+  // value; fall back to a stale one, then to midmarket, so the box never
+  // goes blank just because the configured channel lapsed.
+  const headlineCode = config.headline_channel || "midmarket";
+  const headline =
+    rates.find((r) => r.channel_code === headlineCode && !r.is_stale) ??
+    rates.find((r) => r.channel_code === headlineCode) ??
+    rates.find((r) => r.channel_code === "midmarket");
   const newestRate = rates.reduce<LatestRate | undefined>(
     (acc, r) => (!acc || new Date(r.fetched_at) > new Date(acc.fetched_at) ? r : acc),
     undefined,
@@ -62,7 +70,10 @@ export default async function HomePage() {
 
       {/* ---- Hero: mid-market headline ---- */}
       <section className="mb-8">
-        <RateHeadline myrPerCny={midmarket?.rate ?? null} />
+        <RateHeadline
+          myrPerCny={headline?.headline_rate ?? null}
+          label={headline?.channel_name_zh}
+        />
       </section>
 
       {/* ---- AI summary (one-liner, optional) ---- */}

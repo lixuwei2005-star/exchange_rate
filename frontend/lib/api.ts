@@ -115,6 +115,11 @@ export type HistoryPoint = {
   rate: string;
 };
 
+export type PublicConfig = {
+  // Channel code whose rate fills the homepage hero ("1 MYR = X CNY").
+  headline_channel: string;
+};
+
 export type SummaryResponse = {
   summary_zh: string | null;
   generated_at: string | null;
@@ -193,6 +198,7 @@ export const api = {
     ),
   summary: (base = "CNY", quote = "MYR") =>
     apiFetch<SummaryResponse>(`/api/summary?base=${base}&quote=${quote}`),
+  config: () => apiFetch<PublicConfig>("/api/config"),
 
   admin: {
     me: (cookieHeader?: string) =>
