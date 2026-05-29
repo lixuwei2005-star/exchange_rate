@@ -45,9 +45,11 @@ export default function RateOnlyTable({ rows }: { rows: LatestRate[] }) {
         <table className="w-full text-sm">
           <thead className="text-left text-xs uppercase tracking-wider text-neutral-400">
             <tr>
-              <th className="px-4 py-2.5 font-medium">{zhCN.tableHeaderChannel}</th>
-              <th className="px-4 py-2.5 text-right font-medium">{zhCN.tableHeaderRate}</th>
-              <th className="whitespace-nowrap px-4 py-2.5 text-right font-medium">
+              <th className="px-2.5 py-2.5 font-medium sm:px-4">{zhCN.tableHeaderChannel}</th>
+              <th className="px-2.5 py-2.5 text-right font-medium sm:px-4">
+                {zhCN.tableHeaderRate}
+              </th>
+              <th className="whitespace-nowrap px-2.5 py-2.5 text-right font-medium sm:px-4">
                 {zhCN.tableHeaderUpdated}
               </th>
             </tr>
@@ -55,16 +57,19 @@ export default function RateOnlyTable({ rows }: { rows: LatestRate[] }) {
           <tbody>
             {sorted.map((r) => (
               <tr key={r.channel_code} className="border-t border-neutral-100">
-                <td className="px-4 py-3">
-                  <span className="flex items-center gap-2.5">
-                    {r.channel_name_zh}
+                <td className="px-2.5 py-3 sm:px-4">
+                  {/* Mobile: name on its own line, logo stacked beneath so a long
+                      Chinese name never gets squeezed into vertical characters.
+                      Desktop (sm+): name with the logo to its right. */}
+                  <span className="flex flex-col items-start gap-1 sm:flex-row sm:items-center sm:gap-2.5">
+                    <span className="whitespace-nowrap">{r.channel_name_zh}</span>
                     <ChannelLogo code={r.channel_code} />
                   </span>
                 </td>
-                <td className="px-4 py-3 text-right font-medium tabular-nums">
+                <td className="px-2.5 py-3 text-right font-medium tabular-nums sm:px-4">
                   {displayCnyPerMyr(r.headline_rate)}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-right text-xs text-neutral-400">
+                <td className="whitespace-nowrap px-2.5 py-3 text-right text-xs text-neutral-400 sm:px-4">
                   {zhCN.updatedAtPrefix} {relativeTimeZh(r.fetched_at)}
                 </td>
               </tr>

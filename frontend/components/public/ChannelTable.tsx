@@ -76,7 +76,7 @@ export default function ChannelTable({ rows, amountCny }: Props) {
               key={r.channel_code}
               className={`border-t border-neutral-100 ${r.is_stale ? "text-neutral-400" : ""}`}
             >
-              <td className="px-4 py-3">{r.channel_name_zh}</td>
+              <td className="whitespace-nowrap px-4 py-3">{r.channel_name_zh}</td>
               <td className="px-4 py-3 text-right font-medium tabular-nums">
                 {r.is_stale ? zhCN.unavailable : r.myr?.toFixed(2)}
               </td>

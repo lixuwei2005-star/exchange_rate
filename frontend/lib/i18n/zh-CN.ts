@@ -20,11 +20,11 @@ export const zhCN = {
 
   // Pure rate comparison (above the detailed table)
   rateOnlyTitle: "提供商 / Provider",
-  rateOnlyHint: "仅展示各渠道汇率，不包含手续费等额外成本。",
+  rateOnlyHint: "仅展示各渠道汇率（1 MYR = X CNY），不包含手续费等额外成本。",
 
   // Channel table
   tableHeaderChannel: "渠道",
-  tableHeaderRate: "汇率（1 MYR = X CNY）",
+  tableHeaderRate: "汇率",
   tableHeaderReceive: "你能拿到 (MYR)",
   tableHeaderUpdated: "最后更新",
   updatedAtPrefix: "更新于",
