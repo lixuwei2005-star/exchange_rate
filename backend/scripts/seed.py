@@ -171,6 +171,15 @@ CHANNELS = [
         "interval_minutes": 180,
         "daily_time_cn": None,
     },
+    {
+        "code": "ambank",
+        "name_en": "AmBank",
+        "name_zh": "大马银行",
+        "source_url": "https://www.ambank.com.my/rates-fees-charges/foreign-exchange-rates",
+        "schedule_kind": "interval",
+        "interval_minutes": 180,
+        "daily_time_cn": None,
+    },
 ]
 
 DEFAULT_SYSTEM_PROMPT_ZH = """你是一名外汇分析助手，服务于在马来西亚的中国留学生，帮助他们了解人民币兑马币（CNY→MYR）的换汇行情。
