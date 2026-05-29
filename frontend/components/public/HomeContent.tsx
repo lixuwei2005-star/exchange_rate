@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import AmountInput from "@/components/public/AmountInput";
 import ChannelTable from "@/components/public/ChannelTable";
@@ -14,18 +14,14 @@ type Props = {
 export default function HomeContent({ initialRates }: Props) {
   const [amount, setAmount] = useState<number>(1000);
 
-  const chartChannels = useMemo(
-    () => initialRates.map((r) => ({ code: r.channel_code, name_zh: r.channel_name_zh })),
-    [initialRates],
-  );
-
   return (
     <div className="space-y-6">
       <div>
         <AmountInput onChangeDebounced={setAmount} />
       </div>
       <ChannelTable rows={initialRates} amountCny={amount} />
-      {chartChannels.length > 0 && <HistoryChart channels={chartChannels} />}
+      {/* Single-source trend chart (UnionPay International) — see HistoryChart. */}
+      <HistoryChart />
     </div>
   );
 }

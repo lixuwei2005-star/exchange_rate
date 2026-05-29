@@ -520,7 +520,7 @@ Mobile-first layout:
 3. Input: "我有 [____] CNY，能换多少 MYR？" — number input, default 1000, debounce 300ms, persists in localStorage.
 4. AI summary: one sentence, italic gray, under hero.
 5. Comparison table: sortable by "你能拿到". Columns: 渠道, 汇率 (CNY per MYR for display), 手续费, 你能拿到 (MYR), 更新于. Stale rows greyed out with "暂时不可用".
-6. Chart: tab strip across channels, 30-day line, hover tooltip.
+6. Chart: 30-day line, hover tooltip. **Single source: UnionPay International** (no channel tab strip) — UnionPay publishes a per-date JSON so its 30-day history can be backfilled immediately (`scripts/backfill_unionpay.py`) instead of waiting for the scraper to accumulate it. Plotted as `1 MYR = X CNY` (= 1 / stored MYR-per-CNY rate) to match the rest of the site.
 7. Footer: disclaimer (§13), data sources list, last-updated.
 
 **No analytics, no tracking, no Google Fonts, no third-party scripts.** Cloudflare's built-in analytics only.
@@ -552,6 +552,7 @@ make migrate                # alembic upgrade head
 make seed                   # populate currencies + channels + admin user
 make scrape-once            # run all scrapers once
 make scrape CHANNEL=boc     # one channel only
+make backfill-unionpay      # backfill UnionPay's last 30 days into history (idempotent)
 make summary-now            # regenerate AI summary now using current admin settings
 make logs                   # tail backend logs in production
 make deploy                 # ssh OCI, git pull, docker compose up -d --build
