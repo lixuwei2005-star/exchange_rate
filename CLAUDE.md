@@ -71,6 +71,7 @@ Each scraper must return rate as **MYR per 1 CNY**. Reference:
 | Channel    | Native quote                                  | Field for CNY→MYR                     | To stored rate (MYR per CNY) |
 |------------|-----------------------------------------------|---------------------------------------|------------------------------|
 | BOC        | CNY per 100 MYR, 4 columns                    | **现汇卖出价**                          | `100 / 现汇卖出价` |
+| BOC Malaysia | MYR per 100 foreign; one server-rendered table, header `UNIT \| Currency \| We Buy TT \| We Sell TT \| We Buy Cash \| We Sell Cash \| Update Time`. **Distinct from BOC** (this is the MY entity, quotes MYR). Page is GB18030 (lies about utf-8) → match ASCII (`CNY` code cell, `We Buy TT` header) to dodge mojibake. | **CNY row `We Buy TT` ÷ 100** | `we_buy_tt / 100` |
 | ICBC       | JSON API (page is a Vue SPA): `POST https://papi.icbc.com.cn/exchanges/ns/getLatest` → `{code,data:[{currencyENName,foreignSell,...}]}`; `foreignSell` = 现汇卖出价, CNY per 100 MYR | entry `currencyENName=MYR` → **`foreignSell`** | `100 / foreignSell` |
 | UnionPay   | Static daily JSON entry `1 transCur = rateData × baseCur` | entry `transCur=MYR, baseCur=CNY` | `1 / rateData` |
 | Visa       | `originalValues.fxRateVisa` from cmsapi; **API silently swaps from/to** | trust `originalValues.fromCurrency/toCurrency`, invert if reversed | `fxRateVisa` (no markup) or `1 / fxRateVisa` if direction inverted |
@@ -244,6 +245,7 @@ See §2 for direction and field selection. URLs below are starting points — ve
 | Mid-market 2   | `midmarket2` | https://api.exchangerate.fun/latest?base=CNY (FreeExchangeRateApi aggregator — independent of Frankfurter; lets us cross-check) | 60 min  | Low |
 | Mid-market 3   | `midmarket3` | https://v6.exchangerate-api.com/v6/{key}/latest/CNY (key in `EXCHANGERATE_API_KEY` env; updates once per day per `time_next_update_unix`) | 60 min  | Low |
 | Bank of China  | `boc`        | https://www.boc.cn/sourcedb/whpj/                                                                   | 15 min  | Med — HTML may change |
+| BOC Malaysia   | `bocmy`      | https://www.bankofchina.com/sourcedb/myr/ (server-rendered HTML; project-UA GET → 200, no wall. **Distinct from `boc`** — the Malaysian entity, quotes MYR directly. Page declares utf-8 but is actually **GB18030**; decode gb18030 + match ASCII `CNY`/`We Buy TT`. Board is per-100. `We Buy TT ÷ 100`) | 3 h     | Low–Med — encoding quirk |
 | ICBC           | `icbc`       | `POST https://papi.icbc.com.cn/exchanges/ns/getLatest` (JSON API behind the Vue SPA at icbc.com.cn/column/1438058341489590354.html; CN host, no auth/bot wall, send Origin+Referer of www.icbc.com.cn). **TLS: the host needs legacy renegotiation, so the scraper uses an `ssl` context with `OP_LEGACY_SERVER_CONNECT` — OpenSSL 3 (our Python 3.11 image) otherwise fails with `UNSAFE_LEGACY_RENEGOTIATION_DISABLED`.** Bonus `…/exchanges/ns/history` (POST `{date,currType,serverType:'1'}`) can backfill history | 30 min  | Low — clean JSON |
 | UnionPay Intl  | `unionpay`   | GET https://www.unionpayintl.com/upload/jfimg/{YYYYMMDD}.json (static daily JSON)                   | daily 11:30 SGT | Low |
 | Visa           | `visa`       | https://www.visa.com.my/cmsapi/fx/rates (Cloudflare-protected — use curl_cffi `impersonate='chrome124'`) | 30 min  | Med — Cloudflare JS challenge |
@@ -665,4 +667,4 @@ When answered, delete from here and move the decision to the relevant section ab
 
 ---
 
-**Last updated**: 2026-05-30 (revision 6 — added Standard Chartered + Affin Malaysia bank channels, both no-proxy (SC embedded HTML table, Affin static JSON); §2.5/§6)
+**Last updated**: 2026-05-30 (revision 7 — added Bank of China (Malaysia) channel `bocmy`, distinct from `boc`; GB18030 page, ASCII-matched, We Buy TT ÷ 100; §2.5/§6)

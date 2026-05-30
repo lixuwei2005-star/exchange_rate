@@ -97,9 +97,9 @@ export default async function HomePage() {
       <footer className="mt-auto border-t border-neutral-200 pt-6 text-xs leading-relaxed text-neutral-500">
         <p className="mb-2">{zhCN.disclaimer}</p>
         <p>
-          {zhCN.dataSourcesLabel}: Frankfurter · BOC · ICBC · UnionPay · Visa · Mastercard · Wise ·
-          Maybank · CIMB · Public Bank · RHB · Hong Leong · Alliance · AmBank · HSBC · OCBC ·
-          Standard Chartered · Affin
+          {zhCN.dataSourcesLabel}: Frankfurter · BOC · BOC Malaysia · ICBC · UnionPay · Visa ·
+          Mastercard · Wise · Maybank · CIMB · Public Bank · RHB · Hong Leong · Alliance · AmBank ·
+          HSBC · OCBC · Standard Chartered · Affin
         </p>
       </footer>
     </main>

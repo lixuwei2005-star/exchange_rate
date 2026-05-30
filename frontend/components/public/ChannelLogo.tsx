@@ -17,6 +17,7 @@ const LOGO_FILES: Record<string, string> = {
   visa: "visa.png",
   mastercard: "mastercard.png",
   boc: "boc.png",
+  bocmy: "bocmy.png",
   icbc: "icbc.png",
   unionpay: "unionpay.png",
   publicbank: "publicbank.png",

@@ -73,6 +73,18 @@ CHANNELS = [
         "daily_time_cn": None,
     },
     {
+        # Bank of China (MALAYSIA) — distinct from `boc` (mainland boc.cn).
+        # Quotes MYR directly; we take We Buy TT ÷ 100. Page is GB18030 (lies
+        # about utf-8); the scraper matches ASCII. See app/scrapers/bocmy.py.
+        "code": "bocmy",
+        "name_en": "Bank of China (Malaysia)",
+        "name_zh": "中国银行（马来西亚）",
+        "source_url": "https://www.bankofchina.com/sourcedb/myr/",
+        "schedule_kind": "interval",
+        "interval_minutes": 180,
+        "daily_time_cn": None,
+    },
+    {
         "code": "icbc",
         "name_en": "ICBC",
         "name_zh": "中国工商银行",
