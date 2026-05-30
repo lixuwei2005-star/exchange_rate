@@ -216,6 +216,28 @@ CHANNELS = [
         "interval_minutes": 180,
         "daily_time_cn": None,
     },
+    {
+        # FX board is embedded on the deposits/interest-rates page; an Imperva
+        # script is referenced but does NOT block. See app/scrapers/sc.py.
+        "code": "sc",
+        "name_en": "Standard Chartered Bank Malaysia",
+        "name_zh": "渣打银行",
+        "source_url": "https://www.sc.com/my/deposits/interest-rates/",
+        "schedule_kind": "interval",
+        "interval_minutes": 180,
+        "daily_time_cn": None,
+    },
+    {
+        # Affin's rates page is a JS carousel over static JSON feeds; we hit
+        # the per-100-unit JSON directly. See app/scrapers/affin.py.
+        "code": "affin",
+        "name_en": "Affin Bank",
+        "name_zh": "艾芬银行",
+        "source_url": "https://www.affinalways.com/en/rates-and-pricing",
+        "schedule_kind": "interval",
+        "interval_minutes": 180,
+        "daily_time_cn": None,
+    },
 ]
 
 DEFAULT_SYSTEM_PROMPT_ZH = """你是一名外汇分析助手，服务于在马来西亚的中国留学生，帮助他们了解人民币兑马币（CNY→MYR）的换汇行情。

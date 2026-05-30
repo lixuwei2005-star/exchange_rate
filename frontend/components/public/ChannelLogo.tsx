@@ -28,6 +28,8 @@ const LOGO_FILES: Record<string, string> = {
   ambank: "ambank.png",
   hsbc: "hsbc.png",
   ocbc: "ocbc.png",
+  sc: "sc.png",
+  affin: "affin.png",
 };
 
 export default function ChannelLogo({ code }: { code: string }) {

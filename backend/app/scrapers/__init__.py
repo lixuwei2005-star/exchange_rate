@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.scrapers.affin import AffinScraper
 from app.scrapers.alliance import AllianceScraper
 from app.scrapers.ambank import AmBankScraper
 from app.scrapers.base import Scraper, ScraperError, ScrapeResult
@@ -16,6 +17,7 @@ from app.scrapers.midmarket3 import Midmarket3Scraper
 from app.scrapers.ocbc import OCBCScraper
 from app.scrapers.publicbank import PublicBankScraper
 from app.scrapers.rhb import RHBScraper
+from app.scrapers.sc import StandardCharteredScraper
 from app.scrapers.unionpay import UnionPayScraper
 from app.scrapers.visa import VisaScraper
 from app.scrapers.wise import WiseScraper
@@ -43,6 +45,8 @@ ALL_SCRAPERS: dict[str, type[Scraper]] = {
     "ambank": AmBankScraper,
     "hsbc": HSBCScraper,
     "ocbc": OCBCScraper,
+    "sc": StandardCharteredScraper,
+    "affin": AffinScraper,
 }
 
 __all__ = [
