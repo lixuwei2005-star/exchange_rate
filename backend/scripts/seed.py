@@ -194,6 +194,28 @@ CHANNELS = [
         "interval_minutes": 180,
         "daily_time_cn": None,
     },
+    {
+        "code": "hsbc",
+        "name_en": "HSBC Bank Malaysia",
+        "name_zh": "汇丰银行",
+        "source_url": (
+            "https://www.hsbc.com.my/investments/products/foreign-exchange/currency-rate/"
+        ),
+        "schedule_kind": "interval",
+        "interval_minutes": 180,
+        "daily_time_cn": None,
+    },
+    {
+        # OCBC's www page is an Incapsula shell; the real board is the
+        # internet-banking PUBLIC host. See app/scrapers/ocbc.py + CLAUDE.md §6.
+        "code": "ocbc",
+        "name_en": "OCBC Bank Malaysia",
+        "name_zh": "华侨银行",
+        "source_url": ("https://internet.ocbc.com.my/ocbc-public/ForeignExchangeTTODPublic/Index"),
+        "schedule_kind": "interval",
+        "interval_minutes": 180,
+        "daily_time_cn": None,
+    },
 ]
 
 DEFAULT_SYSTEM_PROMPT_ZH = """你是一名外汇分析助手，服务于在马来西亚的中国留学生，帮助他们了解人民币兑马币（CNY→MYR）的换汇行情。

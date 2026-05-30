@@ -98,7 +98,7 @@ export default async function HomePage() {
         <p className="mb-2">{zhCN.disclaimer}</p>
         <p>
           {zhCN.dataSourcesLabel}: Frankfurter · BOC · ICBC · UnionPay · Visa · Mastercard · Wise ·
-          Maybank · CIMB · Public Bank · RHB · Hong Leong · Alliance · AmBank
+          Maybank · CIMB · Public Bank · RHB · Hong Leong · Alliance · AmBank · HSBC · OCBC
         </p>
       </footer>
     </main>

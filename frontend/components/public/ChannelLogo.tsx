@@ -26,6 +26,8 @@ const LOGO_FILES: Record<string, string> = {
   hlb: "hong-leong-bank-seeklogo.png",
   alliance: "alliance-bank-seeklogo.png",
   ambank: "ambank.png",
+  hsbc: "hsbc.png",
+  ocbc: "ocbc.png",
 };
 
 export default function ChannelLogo({ code }: { code: string }) {
