@@ -112,6 +112,9 @@ async def patch_channel(
     if body.daily_time_cn is not None:
         ch.daily_time_cn = body.daily_time_cn
         schedule_changed = True
+    if body.weekdays is not None:
+        ch.weekdays = body.weekdays
+        schedule_changed = True
     await session.commit()
     await session.refresh(ch)
 

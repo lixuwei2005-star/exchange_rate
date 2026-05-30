@@ -2,7 +2,7 @@
 
 import { Fragment, useState } from "react";
 
-import { api, type AdminChannel, type ChannelScheduleKind } from "@/lib/api";
+import { api, type AdminChannel, type ChannelPatchBody, type ChannelScheduleKind } from "@/lib/api";
 
 function statusBadge(c: AdminChannel) {
   if (!c.active) return <span className="text-neutral-400">disabled</span>;
@@ -10,17 +10,39 @@ function statusBadge(c: AdminChannel) {
   return <span className="text-emerald-700">fresh</span>;
 }
 
+// APScheduler day tokens in week order, with their zh labels. Order matters:
+// we always emit weekdays to the API in this canonical order.
+const WEEKDAYS: { token: string; label: string }[] = [
+  { token: "mon", label: "周一" },
+  { token: "tue", label: "周二" },
+  { token: "wed", label: "周三" },
+  { token: "thu", label: "周四" },
+  { token: "fri", label: "周五" },
+  { token: "sat", label: "周六" },
+  { token: "sun", label: "周日" },
+];
+const WEEKDAY_LABEL: Record<string, string> = Object.fromEntries(
+  WEEKDAYS.map((w) => [w.token, w.label]),
+);
+
 function scheduleLabel(c: AdminChannel) {
   if (c.schedule_kind === "daily" && c.daily_time_cn) {
     return `每天 ${c.daily_time_cn}（东八区）`;
   }
+  if (c.schedule_kind === "weekly" && c.daily_time_cn && c.weekdays) {
+    const days = c.weekdays
+      .split(",")
+      .map((t) => WEEKDAY_LABEL[t] ?? t)
+      .join("、");
+    return `每周 ${days} ${c.daily_time_cn}（东八区）`;
+  }
   if (c.schedule_kind === "interval" && c.interval_minutes) {
     return `每 ${c.interval_minutes} 分钟`;
   }
-  // schedule kind says daily but no time, or interval but no minutes —
+  // schedule kind says daily/weekly but no time, or interval but no minutes —
   // the scheduler falls back to 60 min. Show the same so admin knows what
   // is actually running.
-  return c.schedule_kind === "daily" ? "未设置（默认 60 分钟）" : "默认（60 分钟）";
+  return c.schedule_kind === "interval" ? "默认（60 分钟）" : "未设置（默认 60 分钟）";
 }
 
 // HH:MM in 00:00–23:59.
@@ -29,7 +51,8 @@ const HHMM_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
 type EditorState = {
   kind: ChannelScheduleKind;
   intervalText: string; // text so user can type freely; parsed on save
-  dailyText: string;
+  dailyText: string; // HH:MM, reused by both 'daily' and 'weekly'
+  weekdays: string[]; // selected day tokens (mon..sun); order normalized on save
 };
 
 function initialEditor(c: AdminChannel): EditorState {
@@ -37,6 +60,8 @@ function initialEditor(c: AdminChannel): EditorState {
     kind: c.schedule_kind,
     intervalText: c.interval_minutes ? String(c.interval_minutes) : "60",
     dailyText: c.daily_time_cn ?? "09:00",
+    // Default new weekly schedules to Mon–Fri (the common "skip weekends" case).
+    weekdays: c.weekdays ? c.weekdays.split(",") : ["mon", "tue", "wed", "thu", "fri"],
   };
 }
 
@@ -85,48 +110,62 @@ export default function ChannelsTable({ initial }: { initial: AdminChannel[] }) 
     setEditor(null);
   }
 
+  function toggleWeekday(token: string) {
+    setEditor((ed) =>
+      ed === null
+        ? ed
+        : {
+            ...ed,
+            weekdays: ed.weekdays.includes(token)
+              ? ed.weekdays.filter((t) => t !== token)
+              : [...ed.weekdays, token],
+          },
+    );
+  }
+
   async function saveEdit(c: AdminChannel) {
     if (!editor) return;
     setErr(null);
 
+    let body: ChannelPatchBody;
     if (editor.kind === "interval") {
       const n = Number(editor.intervalText);
       if (!Number.isInteger(n) || n < 1 || n > 1440) {
         setErr("间隔分钟需在 1 到 1440 之间");
         return;
       }
-      setBusy(c.code);
-      try {
-        const next = await api.admin.patchChannel(c.code, {
-          schedule_kind: "interval",
-          interval_minutes: n,
-        });
-        setRows((rs) => rs.map((r) => (r.code === c.code ? next : r)));
-        cancelEdit();
-      } catch (e) {
-        setErr(String(e));
-      } finally {
-        setBusy(null);
-      }
+      body = { schedule_kind: "interval", interval_minutes: n };
     } else {
+      // daily + weekly share the HH:MM time field.
       const v = editor.dailyText.trim();
       if (!HHMM_RE.test(v)) {
         setErr("时间格式需为 HH:MM（00:00 – 23:59）");
         return;
       }
-      setBusy(c.code);
-      try {
-        const next = await api.admin.patchChannel(c.code, {
-          schedule_kind: "daily",
-          daily_time_cn: v,
-        });
-        setRows((rs) => rs.map((r) => (r.code === c.code ? next : r)));
-        cancelEdit();
-      } catch (e) {
-        setErr(String(e));
-      } finally {
-        setBusy(null);
+      if (editor.kind === "daily") {
+        body = { schedule_kind: "daily", daily_time_cn: v };
+      } else {
+        if (editor.weekdays.length === 0) {
+          setErr("请至少勾选一天");
+          return;
+        }
+        // Emit weekdays in canonical week order regardless of click order.
+        const ordered = WEEKDAYS.filter((w) => editor.weekdays.includes(w.token))
+          .map((w) => w.token)
+          .join(",");
+        body = { schedule_kind: "weekly", daily_time_cn: v, weekdays: ordered };
       }
+    }
+
+    setBusy(c.code);
+    try {
+      const next = await api.admin.patchChannel(c.code, body);
+      setRows((rs) => rs.map((r) => (r.code === c.code ? next : r)));
+      cancelEdit();
+    } catch (e) {
+      setErr(String(e));
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -220,8 +259,17 @@ export default function ChannelsTable({ initial }: { initial: AdminChannel[] }) 
                             />
                             每日定时
                           </label>
+                          <label className="inline-flex items-center gap-2 text-sm">
+                            <input
+                              type="radio"
+                              name={`kind-${c.code}`}
+                              checked={editor.kind === "weekly"}
+                              onChange={() => setEditor({ ...editor, kind: "weekly" })}
+                            />
+                            每周指定
+                          </label>
                         </div>
-                        {editor.kind === "interval" ? (
+                        {editor.kind === "interval" && (
                           <div className="flex items-center gap-2 text-sm">
                             <span className="text-neutral-600">每</span>
                             <input
@@ -237,7 +285,8 @@ export default function ChannelsTable({ initial }: { initial: AdminChannel[] }) 
                             />
                             <span className="text-neutral-600">分钟刷新一次（范围 1–1440）</span>
                           </div>
-                        ) : (
+                        )}
+                        {editor.kind === "daily" && (
                           <div className="flex items-center gap-2 text-sm">
                             <span className="text-neutral-600">每天</span>
                             <input
@@ -247,6 +296,43 @@ export default function ChannelsTable({ initial }: { initial: AdminChannel[] }) 
                               className="rounded border border-neutral-300 px-2 py-1"
                             />
                             <span className="text-neutral-600">刷新一次（东八区）</span>
+                          </div>
+                        )}
+                        {editor.kind === "weekly" && (
+                          <div className="flex flex-col gap-2 text-sm">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-neutral-600">每周</span>
+                              {WEEKDAYS.map((w) => {
+                                const on = editor.weekdays.includes(w.token);
+                                return (
+                                  <button
+                                    key={w.token}
+                                    type="button"
+                                    onClick={() => toggleWeekday(w.token)}
+                                    className={
+                                      "rounded border px-2 py-1 text-xs " +
+                                      (on
+                                        ? "border-neutral-900 bg-neutral-900 text-white"
+                                        : "border-neutral-300 bg-white text-neutral-700 hover:bg-neutral-100")
+                                    }
+                                  >
+                                    {w.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-neutral-600">的</span>
+                              <input
+                                type="time"
+                                value={editor.dailyText}
+                                onChange={(e) =>
+                                  setEditor({ ...editor, dailyText: e.target.value })
+                                }
+                                className="rounded border border-neutral-300 px-2 py-1"
+                              />
+                              <span className="text-neutral-600">刷新一次（东八区）</span>
+                            </div>
                           </div>
                         )}
                         <div className="flex gap-2">

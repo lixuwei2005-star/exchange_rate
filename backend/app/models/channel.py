@@ -21,14 +21,20 @@ class Channel(Base):
     last_error_msg: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Per-channel refresh policy, editable via /admin/channels.
-    # `schedule_kind` is 'interval' (default) or 'daily'. The scheduler in
-    # app/scheduler.py picks IntervalTrigger or CronTrigger(Asia/Shanghai)
-    # from these columns. When both detail columns are NULL the scheduler
-    # falls back to DEFAULT_INTERVAL_MINUTES.
+    # `schedule_kind` is 'interval' (default), 'daily', or 'weekly'. The
+    # scheduler in app/scheduler.py picks IntervalTrigger or
+    # CronTrigger(Asia/Shanghai) from these columns. When the detail columns
+    # a kind needs are NULL the scheduler falls back to DEFAULT_INTERVAL_MINUTES.
     schedule_kind: Mapped[str] = mapped_column(
         String(16), default="interval", server_default="interval", nullable=False
     )
     interval_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     # HH:MM in Asia/Shanghai (UTC+8). Server runs in SGT but UnionPay etc
     # publish at Beijing wall-clock times, so we store + display in CN time.
+    # Used by BOTH 'daily' (every day at this time) and 'weekly' (only on the
+    # selected `weekdays` at this time).
     daily_time_cn: Mapped[str | None] = mapped_column(String(5), nullable=True)
+    # Comma-separated APScheduler day-of-week tokens in canonical order, e.g.
+    # "mon,tue,wed,thu,fri". Used only when schedule_kind='weekly' (paired with
+    # daily_time_cn). NULL for interval/daily.
+    weekdays: Mapped[str | None] = mapped_column(String(32), nullable=True)

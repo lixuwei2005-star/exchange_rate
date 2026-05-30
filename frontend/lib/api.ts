@@ -131,7 +131,7 @@ export type SummaryResponse = {
   model_used: string | null;
 };
 
-export type ChannelScheduleKind = "interval" | "daily";
+export type ChannelScheduleKind = "interval" | "daily" | "weekly";
 
 export type AdminChannel = {
   code: string;
@@ -143,10 +143,13 @@ export type AdminChannel = {
   last_error_at: string | null;
   last_error_msg: string | null;
   // Per-channel refresh policy. `daily_time_cn` is HH:MM in Asia/Shanghai
-  // (UTC+8). When schedule_kind='interval', interval_minutes is used.
+  // (UTC+8), used by both 'daily' and 'weekly'. When schedule_kind='interval',
+  // interval_minutes is used. `weekdays` is a comma list of mon..sun, used
+  // only when schedule_kind='weekly'.
   schedule_kind: ChannelScheduleKind;
   interval_minutes: number | null;
   daily_time_cn: string | null;
+  weekdays: string | null;
 };
 
 export type ChannelPatchBody = Partial<
@@ -159,6 +162,7 @@ export type ChannelPatchBody = Partial<
     | "schedule_kind"
     | "interval_minutes"
     | "daily_time_cn"
+    | "weekdays"
   >
 >;
 

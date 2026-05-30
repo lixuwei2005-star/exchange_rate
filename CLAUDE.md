@@ -256,7 +256,7 @@ See §2 for direction and field selection. URLs below are starting points — ve
 
 > ⚠️ "Refresh" above is our poll cadence, not how often the source itself publishes. Frankfurter is daily (ECB ~CET 16:00); Wise / banks change intraday; Maybank / CIMB update at most a couple of times per business day. Polling faster than the source updates is harmless (deduplicated by `(channel, fetched_at)` uniqueness conceptually — we store every snapshot but the displayed value just stays the same) but doesn't increase actual freshness.
 
-> 📝 **Refresh cadence is per-channel and live-editable** since 2026-05-28. The values above are the *seed defaults* written to `channels.interval_minutes` / `channels.daily_time_cn` on first install. Admin can change either field via `/admin/channels` → "调度" without redeploying; the scheduler reschedules the job in place. `schedule_kind='daily'` runs `CronTrigger(hour, minute, timezone='Asia/Shanghai')` because every daily-style source (UnionPay, etc.) publishes on Beijing wall-clock. The constants `DEFAULT_INTERVAL_MINUTES` in `app/scheduler.py` is a last-resort fallback only.
+> 📝 **Refresh cadence is per-channel and live-editable** since 2026-05-28. The values above are the *seed defaults* written to `channels.interval_minutes` / `channels.daily_time_cn` on first install. Admin can change either field via `/admin/channels` → "调度" without redeploying; the scheduler reschedules the job in place. `schedule_kind='daily'` runs `CronTrigger(hour, minute, timezone='Asia/Shanghai')` because every daily-style source (UnionPay, etc.) publishes on Beijing wall-clock. `schedule_kind='weekly'` (added 2026-05-30) is the same but only on selected `weekdays` (`CronTrigger(day_of_week='mon,tue,…', hour, minute, tz='Asia/Shanghai')`) — for sources that don't update on weekends, so we don't poll then. The constant `DEFAULT_INTERVAL_MINUTES` in `app/scheduler.py` is a last-resort fallback only (also used when a 'weekly' row has no `weekdays`).
 
 ### Fee model
 
@@ -330,9 +330,10 @@ SQLite for V1, written so Postgres migration is just a connection string change.
 #   last_success_at   DATETIME NULL
 #   last_error_at     DATETIME NULL
 #   last_error_msg    TEXT NULL
-#   schedule_kind     VARCHAR(16) NOT NULL DEFAULT 'interval'  # 'interval' | 'daily'
+#   schedule_kind     VARCHAR(16) NOT NULL DEFAULT 'interval'  # 'interval' | 'daily' | 'weekly'
 #   interval_minutes  INTEGER NULL                              # used when kind='interval'
-#   daily_time_cn     VARCHAR(5) NULL                           # HH:MM, Asia/Shanghai
+#   daily_time_cn     VARCHAR(5) NULL                           # HH:MM, Asia/Shanghai; used by 'daily' AND 'weekly'
+#   weekdays          VARCHAR(32) NULL                          # comma list mon..sun (canonical order); used when kind='weekly'
 
 # rate_snapshots
 #   id              INTEGER PK
@@ -498,7 +499,7 @@ Track per-day cumulative cost in a small in-memory counter (reset at SGT 00:00).
 |---------------------|------------------------------------------------------------------------|
 | `/admin/login`      | Username + password form. POSTs to `/api/admin/login`, redirects.       |
 | `/admin`            | Dashboard. Cards: snapshots today, stale channels, last AI summary, recent errors. |
-| `/admin/channels`   | Top: **首页大数字汇率来源** selector — picks which active channel feeds the homepage hero (writes `display.headline_channel`). Below: table of code, name_zh, status (fresh/stale/disabled), schedule (每 N 分钟 / 每天 HH:MM 东八区), last success, last error, [调度] inline editor, [Active] toggle, [Scrape now]. Editing schedule re-registers the APScheduler job in place — no restart needed. |
+| `/admin/channels`   | Top: **首页大数字汇率来源** selector — picks which active channel feeds the homepage hero (writes `display.headline_channel`). Below: table of code, name_zh, status (fresh/stale/disabled), schedule (每 N 分钟 / 每天 HH:MM 东八区 / 每周 周X… HH:MM), last success, last error, [调度] inline editor (固定间隔 / 每日定时 / 每周指定 — weekday checkboxes + time), [Active] toggle, [Scrape now]. Editing schedule re-registers the APScheduler job in place — no restart needed. |
 | `/admin/ai`         | Form for all `ai.*` settings. API key field shows `***`; only POSTs new value if user types. [Test connection] button. [Regenerate now]. Shows last 5 summaries. |
 | `/admin/logs`       | Last 200 scrape_logs rows, filter by level. Text dump, no fancy viewer. |
 

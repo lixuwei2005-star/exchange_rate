@@ -33,17 +33,41 @@ DEFAULT_INTERVAL_MINUTES = 60
 
 
 def _trigger_for(ch: Channel) -> CronTrigger | IntervalTrigger:
-    """Pick the APScheduler trigger to use for one channel row."""
-    if ch.schedule_kind == "daily" and ch.daily_time_cn:
-        try:
-            h_str, m_str = ch.daily_time_cn.split(":")
-            return CronTrigger(hour=int(h_str), minute=int(m_str), timezone="Asia/Shanghai")
-        except (ValueError, AttributeError):
+    """Pick the APScheduler trigger to use for one channel row.
+
+    'daily'  -> CronTrigger every day at daily_time_cn (Asia/Shanghai).
+    'weekly' -> CronTrigger at daily_time_cn but only on `weekdays`
+                (comma list of mon..sun), e.g. Mon-Fri so weekend non-updates
+                aren't polled.
+    'interval' (or any misconfigured row) -> IntervalTrigger.
+    """
+    if ch.schedule_kind in ("daily", "weekly") and ch.daily_time_cn:
+        if ch.schedule_kind == "weekly" and not ch.weekdays:
             logger.warning(
-                "channel %s has invalid daily_time_cn %r; falling back to interval",
+                "channel %s is weekly but has no weekdays; falling back to interval",
                 ch.code,
-                ch.daily_time_cn,
             )
+        else:
+            # Construction is INSIDE the try so an out-of-range time
+            # (e.g. "25:99") falls back instead of raising — the API
+            # validates HH:MM, but a hand-edited DB row shouldn't crash.
+            try:
+                h_str, m_str = ch.daily_time_cn.split(":")
+                hour, minute = int(h_str), int(m_str)
+                if ch.schedule_kind == "daily":
+                    return CronTrigger(hour=hour, minute=minute, timezone="Asia/Shanghai")
+                return CronTrigger(
+                    day_of_week=ch.weekdays,
+                    hour=hour,
+                    minute=minute,
+                    timezone="Asia/Shanghai",
+                )
+            except (ValueError, AttributeError):
+                logger.warning(
+                    "channel %s has invalid daily_time_cn %r; falling back to interval",
+                    ch.code,
+                    ch.daily_time_cn,
+                )
     minutes = ch.interval_minutes or DEFAULT_INTERVAL_MINUTES
     return IntervalTrigger(minutes=minutes, jitter=30)
 
