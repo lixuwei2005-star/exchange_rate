@@ -76,6 +76,7 @@ Each scraper must return rate as **MYR per 1 CNY**. Reference:
 | Visa       | `originalValues.fxRateVisa` from cmsapi; **API silently swaps from/to** | trust `originalValues.fromCurrency/toCurrency`, invert if reversed | `fxRateVisa` (no markup) or `1 / fxRateVisa` if direction inverted |
 | Mastercard | Similar to Visa                               | CNY → MYR                             | `response_rate` (no markup) |
 | Wise       | JSON `{rate}` where 1 source unit = X target  | `source=CNY&target=MYR`               | `response_rate` (already correct) |
+| Maybank    | MYR per N units foreign; counter-rate table, multiplier baked into row label (`100 Chinese Renminbi`); columns after label `Selling TT/OD \| Buying TT \| Buying OD \| …`. **Fetched via Firecrawl** (Akamai blocks OCI directly) then parsed deterministically — pick the 2nd numeric cell (`Buying TT`). | **CNY row `Buying TT` (numeric col idx 1) ÷ multiplier** | `buying_tt / 100` |
 | CIMB       | MYR per N units foreign (section heading says `Per N Units of Foreign Currency`) | **CNY row Buying TT column ÷ multiplier** | `buying_tt / multiplier` (CNY is in the per-100 table → ÷100) |
 | Public Bank | MYR per N units foreign (multiplier baked into row label, e.g. `100 Chinese Renminbi (Non Trade)`) | **CNY row Buying TT column ÷ multiplier** | `buying_tt / 100` |
 | RHB        | MYR per `Unit` foreign; columns `Bank Sell TT/OD \| Bank Buy TT \| Bank Buy OD`; data rows split code+name so they have 1 extra cell vs header | **CNY row Bank Buy TT ÷ Unit** | `bank_buy_tt / 100` (sanity floor widened to 0.45 — RHB's CNY spread is unusually wide) |
@@ -135,7 +136,7 @@ Each scraper must return rate as **MYR per 1 CNY**. Reference:
 | ORM          | SQLAlchemy 2.0 async                                                    |
 | Migrations   | Alembic                                                                 |
 | Scheduler    | APScheduler (in-process AsyncIOScheduler, timezone `Asia/Singapore`)    |
-| HTTP client  | httpx async (default); `curl_cffi` only when a host blocks plain httpx via TLS/JA3 fingerprinting (Cloudflare JS challenges). Visa uses it. |
+| HTTP client  | httpx async (default); `curl_cffi` only when a host blocks plain httpx via TLS/JA3 fingerprinting (Cloudflare JS challenges). Visa uses it. **Firecrawl** (managed fetch API, called over httpx — no new dep) is used by **Maybank only**, the single sanctioned exception to the no-proxy rule (§6/§7), because Akamai blocks OCI's IP at the IP layer (even Playwright). |
 | HTML parse   | BeautifulSoup4 + lxml                                                   |
 | Browser      | Playwright — **only** if HTTP-only + `curl_cffi` are both infeasible. Flag in PR. |
 | AI client    | `openai` Python SDK (works with any OpenAI-compatible endpoint) — §10   |
@@ -244,13 +245,14 @@ See §2 for direction and field selection. URLs below are starting points — ve
 | Visa           | `visa`       | https://www.visa.com.my/cmsapi/fx/rates (Cloudflare-protected — use curl_cffi `impersonate='chrome124'`) | 30 min  | Med — Cloudflare JS challenge |
 | Mastercard     | `mastercard` | https://www.mastercard.co.uk/en-gb/personal/get-support/convert-currency.html                       | 30 min  | Med |
 | Wise           | `wise`       | POST https://api.wise.com/v3/quotes (unauthenticated quote)                                         | 10 min  | Low |
+| Maybank        | `maybank`    | https://www.maybank2u.com.my/maybank2u/malaysia/en/personal/rates/forex_rates.page — **fetched via Firecrawl** (`POST https://api.firecrawl.dev/v1/scrape`, `formats:[rawHtml]`, `proxy:stealth`; key in `FIRECRAWL_API_KEY` env). Akamai blocks OCI's IP directly (even Playwright), so Firecrawl is the **single sanctioned proxy/unblock exception** (§7). HTML is parsed deterministically — `Buying TT` ÷ 100. | daily 18:00 东八区 | Med — Akamai via Firecrawl |
 | CIMB           | `cimb`       | https://www.cimb.com.my/en/business/help-and-support/rates-charges/forex-rates.html (server-rendered HTML; the Per-100 wholesale table) | 3 h     | Low |
 | Public Bank    | `publicbank` | https://www.pbebank.com/en/rates-charges/forex/ (server-rendered HTML; single forex table, multiplier in row label) | 3 h     | Low |
 | RHB            | `rhb`        | https://www.rhbgroup.com/treasury-rates/foreign-exchange/index.html (server-rendered HTML; Cloudflare in front but serves plain GET; `Unit` column + code/name split rows) | 3 h     | Low |
 | Hong Leong     | `hlb`        | https://www.hlb.com.my/en/global-markets/forex-rates.html (server-rendered HTML; plain GET works with the project UA — no Cloudflare/Akamai bot wall; self-labelling `left-col`/`right-col` cells, no header row) | 3 h     | Low |
 | AmBank         | `ambank`     | https://www.ambank.com.my/rates-fees-charges/foreign-exchange-rates (server-rendered HTML; Sitefinity CMS `k-table`; Cloudflare in front but CDN-cache only, plain GET with project UA returns 200. Board is manually maintained ~daily and CDN-cached up to 12 h, so don't poll faster than the source updates) | 3 h     | Low–Med — CMS table / CDN-cached |
 
-> ⚠️ **Maybank was decommissioned 2026-05-28.** Akamai Bot Manager blocks plain server-side GET (HTTP 403) from OCI's data-center IP range. A Playwright + manual stealth tweaks attempt was implemented and verified end-to-end from OCI; Akamai still served an interstitial instead of the rate table (`'Chinese Renminbi' did not appear within 15s` in the diagnostic). Patchright / paid unblock services (ScrapingBee, ZenRows) were not pursued because CIMB covers the same Malaysian-bank data dimension cleanly. The Playwright-based Maybank scraper lives in git history at commits `f833360..baa596c` if anyone wants to revisit.
+> ⚠️ **Maybank: decommissioned 2026-05-28, re-added 2026-05-30 via Firecrawl.** Akamai Bot Manager blocks plain server-side GET (HTTP 403) from OCI's data-center IP range; a Playwright + stealth attempt from OCI was *also* blocked (interstitial instead of the rate table) — proving the block is at the **IP layer, not the fingerprint**, so no client-side trick from OCI can win. The owner amended §7/§13 on 2026-05-30 to permit **Firecrawl for Maybank only** (it fetches from its own infra, returning HTML we parse deterministically — the rate is never read by an LLM). This is the *single* sanctioned proxy/unblock exception; no other channel may use it. Needs `FIRECRAWL_API_KEY` in `.env`; empty key → scraper raises a clear error and the channel stays stale. The old Playwright-based scraper is still in git history at commits `f833360..baa596c`.
 
 > ⚠️ "Refresh" above is our poll cadence, not how often the source itself publishes. Frankfurter is daily (ECB ~CET 16:00); Wise / banks change intraday; Maybank / CIMB update at most a couple of times per business day. Polling faster than the source updates is harmless (deduplicated by `(channel, fetched_at)` uniqueness conceptually — we store every snapshot but the displayed value just stays the same) but doesn't increase actual freshness.
 
@@ -304,7 +306,7 @@ Rules:
 - Raise `ScraperError` on any failure. Scheduler catches and logs; no retry within a tick.
 - Respect 1 req/min ceiling per source. Don't be a jerk.
 - `User-Agent: rate.005917.xyz contact: <Xuwei's email>`.
-- **Never use proxies** to bypass IP blocks. If blocked, mark channel stale, log, surface in admin UI.
+- **Never use proxies** to bypass IP blocks. If blocked, mark channel stale, log, surface in admin UI. **One sanctioned exception (owner-approved 2026-05-30): Maybank may fetch through Firecrawl**, because Akamai blocks OCI at the IP layer (even Playwright). It is the *only* channel allowed a managed-fetch/unblock service, the rate is still parsed deterministically (never by an LLM), and it stays at one fetch/day. Do **not** extend this to any other channel without explicit owner approval.
 - After parsing: sanity check rate in expected range (see §2.6). If out of range, raise — likely parser bug.
 
 ---
@@ -544,7 +546,7 @@ Mobile-first layout:
 - **Graceful degradation**: if all scrapers fail, show last good data with banner "数据更新延迟". Never a 500 on `/`.
 - **Privacy**: zero third-party trackers. Self-host fonts.
 - **Robots**: allow `/`, disallow `/admin`, `/api`. Submit sitemap after launch.
-- **No proxy rotation, no UA rotation, no scraping abuse**: if blocked, mark stale, log, surface in admin.
+- **No proxy rotation, no UA rotation, no scraping abuse**: if blocked, mark stale, log, surface in admin. (Sole exception: **Maybank via Firecrawl**, owner-approved 2026-05-30 — see §6/§7. One fetch/day, deterministic parse, no other channel.)
 - **No named money changer recommendations**: legal risk in MY (BNM) and CN (外管). Stick to publishable rates only.
 
 ---
@@ -654,4 +656,4 @@ When answered, delete from here and move the decision to the relevant section ab
 
 ---
 
-**Last updated**: 2026-05-27 (revision 3 — dropped local-LLM examples, added Alibaba/Moonshot/Zhipu cloud options)
+**Last updated**: 2026-05-30 (revision 4 — re-added Maybank via Firecrawl as the single sanctioned no-proxy exception; §4/§6/§7/§13/§2.5 updated)

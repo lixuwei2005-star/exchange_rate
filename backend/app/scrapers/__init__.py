@@ -8,6 +8,7 @@ from app.scrapers.cimb import CIMBScraper
 from app.scrapers.hlb import HLBScraper
 from app.scrapers.icbc import ICBCScraper
 from app.scrapers.mastercard import MastercardScraper
+from app.scrapers.maybank import MaybankScraper
 from app.scrapers.midmarket import MidmarketScraper
 from app.scrapers.midmarket2 import Midmarket2Scraper
 from app.scrapers.midmarket3 import Midmarket3Scraper
@@ -17,11 +18,10 @@ from app.scrapers.unionpay import UnionPayScraper
 from app.scrapers.visa import VisaScraper
 from app.scrapers.wise import WiseScraper
 
-# NOTE: maybank was investigated 2026-05-28 and decommissioned — see
-# CLAUDE.md §6. Akamai blocks data-center IPs from OCI even with Playwright
-# + stealth tweaks; CIMB serves the same Malaysian-bank data dimension
-# without that issue. The git history at commits f833360..baa596c carries
-# the Playwright-based maybank scraper if we ever revisit.
+# NOTE: maybank was decommissioned 2026-05-28 (Akamai blocks OCI's IP even
+# via Playwright) and RE-ADDED 2026-05-30 via Firecrawl — the single
+# sanctioned exception to the no-proxy rule (CLAUDE.md §6/§7). It needs
+# FIRECRAWL_API_KEY set or it raises a clear error and stays stale.
 ALL_SCRAPERS: dict[str, type[Scraper]] = {
     "midmarket": MidmarketScraper,
     "midmarket2": Midmarket2Scraper,
@@ -32,6 +32,7 @@ ALL_SCRAPERS: dict[str, type[Scraper]] = {
     "visa": VisaScraper,
     "mastercard": MastercardScraper,
     "wise": WiseScraper,
+    "maybank": MaybankScraper,
     "cimb": CIMBScraper,
     "publicbank": PublicBankScraper,
     "rhb": RHBScraper,

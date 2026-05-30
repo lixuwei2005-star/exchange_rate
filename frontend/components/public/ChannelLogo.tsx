@@ -21,6 +21,7 @@ const LOGO_FILES: Record<string, string> = {
   unionpay: "unionpay.png",
   publicbank: "publicbank.png",
   cimb: "cimb.png",
+  maybank: "maybank-seeklogo.png",
   rhb: "rhb.png",
   hlb: "hong-leong-bank-seeklogo.png",
   alliance: "alliance-bank-seeklogo.png",

@@ -119,8 +119,22 @@ CHANNELS = [
         "interval_minutes": 10,
         "daily_time_cn": None,
     },
-    # Maybank decommissioned 2026-05-28: Akamai blocks OCI; see CLAUDE.md §6.
-    # If you re-add it, also restore the scraper + default schedule entry.
+    {
+        # Maybank: fetched through Firecrawl (Akamai blocks OCI's IP directly).
+        # The single sanctioned proxy/unblock exception — see CLAUDE.md §6/§7.
+        # Maybank resets its board ~17:20 Malaysia time (UTC+8); we fetch daily
+        # at 18:00 东八区 (= 18:00 MYT). Admin can change this in /admin/channels.
+        # Needs FIRECRAWL_API_KEY in .env or the scraper raises + stays stale.
+        "code": "maybank",
+        "name_en": "Maybank",
+        "name_zh": "马来亚银行",
+        "source_url": (
+            "https://www.maybank2u.com.my/maybank2u/malaysia/en/personal/rates/forex_rates.page"
+        ),
+        "schedule_kind": "daily",
+        "interval_minutes": None,
+        "daily_time_cn": "18:00",
+    },
     {
         "code": "cimb",
         "name_en": "CIMB Bank",

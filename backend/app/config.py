@@ -30,6 +30,15 @@ class Settings(BaseSettings):
     # call. Set EXCHANGERATE_API_KEY in .env (NOT committed). See CLAUDE.md §6.
     exchangerate_api_key: str = ""
 
+    # API key for Firecrawl (https://firecrawl.dev), used ONLY by the Maybank
+    # scraper — Maybank sits behind Akamai Bot Manager which blocks OCI's
+    # data-center IP at the IP layer (a real Playwright browser was blocked
+    # too). Firecrawl fetches from its own infra and returns the HTML; we then
+    # parse it deterministically. This is the single sanctioned exception to
+    # the "no proxy / unblock service" rule (CLAUDE.md §7/§13). Empty => the
+    # scraper raises a clear ScraperError without calling out. See CLAUDE.md §6.
+    firecrawl_api_key: str = ""
+
     # Public name used in logs / health.
     app_name: str = "rate.005917.xyz"
 

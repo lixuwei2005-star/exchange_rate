@@ -39,6 +39,10 @@ PER_CHANNEL_STALE_THRESHOLD: dict[str, timedelta] = {
     # cron fires at 11:30; 30 h covers the full day-to-day window plus
     # margin for upstream delays.
     "unionpay": timedelta(hours=30),
+    # Maybank resets its board ~17:20 MYT and we fetch daily at 18:00 东八区;
+    # same daily cadence as UnionPay, so it needs the same wide window or it
+    # would flip to 'stale' a few hours after each successful daily fetch.
+    "maybank": timedelta(hours=30),
 }
 
 
