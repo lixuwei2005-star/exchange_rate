@@ -27,7 +27,13 @@ class LatestRate(BaseModel):
     # of relying on this snapshot value.
     fee_estimate: Decimal | None = None
     fee_currency: str | None = None
+    # When this channel was last SUCCESSFULLY polled (last snapshot time).
     fetched_at: datetime
+    # When the rate VALUE last actually changed (fetched_at of the oldest
+    # snapshot in the current run of identical latest rates). The homepage's
+    # "更新于" column uses this so a rate that hasn't moved doesn't look like
+    # it refreshes every poll. Falls back to fetched_at if unknown.
+    rate_changed_at: datetime
     is_stale: bool
 
 

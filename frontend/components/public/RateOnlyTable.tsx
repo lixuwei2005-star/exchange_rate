@@ -14,21 +14,21 @@ import ChannelLogo from "./ChannelLogo";
  * Server Component — no client-side state, no event handlers.
  */
 export default function RateOnlyTable({ rows }: { rows: LatestRate[] }) {
-  const active = rows.filter((r) => !r.is_stale && parseFloat(r.headline_rate) > 0);
-  if (active.length === 0) return null;
+  if (rows.length === 0) return null;
 
-  // The three mid-market references are pinned to the bottom in a fixed
-  // 1→2→3 order (they're reference values, not channels you actually use).
-  // Everything else floats above them. headline_rate is MYR/CNY: higher
-  // MYR/CNY = better for the customer exchanging CNY → MYR. Displayed as
-  // `1 MYR = X CNY`, where X = 1/rate; sorting by displayed CNY/MYR ascending
-  // == sorting by MYR/CNY descending.
+  // Keep stale channels visible (shown as "暂时不可用") instead of dropping
+  // them — a channel vanishing reads worse than one honestly marked stale.
   const midmarketRank: Record<string, number> = {
     midmarket: 1,
     midmarket2: 2,
     midmarket3: 3,
   };
-  const sorted = [...active].sort((a, b) => {
+  // Sort: fresh rows first (best rate on top), then stale rows at the bottom.
+  // The three mid-market references are pinned among the fresh group in a
+  // fixed 1→2→3 order. headline_rate is MYR/CNY: higher = better; displayed as
+  // `1 MYR = X CNY` (X = 1/rate), so MYR/CNY descending == displayed ascending.
+  const sorted = [...rows].sort((a, b) => {
+    if (a.is_stale !== b.is_stale) return a.is_stale ? 1 : -1;
     const ra = midmarketRank[a.channel_code] ?? 0;
     const rb = midmarketRank[b.channel_code] ?? 0;
     if (ra || rb) return ra - rb;
@@ -56,7 +56,10 @@ export default function RateOnlyTable({ rows }: { rows: LatestRate[] }) {
           </thead>
           <tbody>
             {sorted.map((r) => (
-              <tr key={r.channel_code} className="border-t border-neutral-100">
+              <tr
+                key={r.channel_code}
+                className={`border-t border-neutral-100 ${r.is_stale ? "text-neutral-400" : ""}`}
+              >
                 <td className="px-2.5 py-3 sm:px-4">
                   {/* Mobile: name on its own line, logo stacked beneath so a long
                       Chinese name never gets squeezed into vertical characters.
@@ -67,10 +70,14 @@ export default function RateOnlyTable({ rows }: { rows: LatestRate[] }) {
                   </span>
                 </td>
                 <td className="px-2.5 py-3 text-right font-medium tabular-nums sm:px-4">
-                  {displayCnyPerMyr(r.headline_rate)}
+                  {r.is_stale ? zhCN.unavailable : displayCnyPerMyr(r.headline_rate)}
                 </td>
                 <td className="whitespace-nowrap px-2.5 py-3 text-right text-xs text-neutral-400 sm:px-4">
-                  {zhCN.updatedAtPrefix} {relativeTimeZh(r.fetched_at)}
+                  {/* "更新于" reflects when the rate VALUE last changed, not the
+                      last poll — an unchanged rate keeps its original time. */}
+                  {r.is_stale
+                    ? "—"
+                    : `${zhCN.updatedAtPrefix} ${relativeTimeZh(r.rate_changed_at)}`}
                 </td>
               </tr>
             ))}

@@ -106,7 +106,8 @@ export type LatestRate = {
   // amount to get an accurate fee (Wise's fee has a sizable fixed part).
   fee_estimate: string | null;
   fee_currency: string | null;
-  fetched_at: string; // ISO
+  fetched_at: string; // ISO — last successful poll
+  rate_changed_at: string; // ISO — when the rate VALUE last actually changed
   is_stale: boolean;
 };
 

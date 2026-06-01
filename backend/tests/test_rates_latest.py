@@ -83,6 +83,100 @@ async def test_rates_latest_returns_only_active_channels_latest_snapshot(session
 
 
 @pytest.mark.asyncio
+async def test_rates_latest_rate_changed_at_holds_when_value_unchanged(session):
+    """rate_changed_at should point at the FIRST time the current value
+    appeared, not the latest poll — so an unchanged rate doesn't look like it
+    refreshes every tick. fetched_at still tracks the latest poll."""
+    session.add(Currency(code="CNY", name_en="Chinese Yuan", name_zh="人民币"))
+    session.add(Currency(code="MYR", name_en="Malaysian Ringgit", name_zh="马来西亚林吉特"))
+    session.add(Channel(code="midmarket", name_en="Mid", name_zh="中间价", active=True))
+    # Three polls: rate moved 0.65 -> 0.66, then stayed 0.66 for two polls.
+    t0 = datetime(2026, 6, 1, 0, 0, tzinfo=UTC)
+    t1 = datetime(2026, 6, 1, 1, 0, tzinfo=UTC)  # value changed to 0.66 here
+    t2 = datetime(2026, 6, 1, 2, 0, tzinfo=UTC)  # same 0.66 (latest poll)
+    session.add_all(
+        [
+            RateSnapshot(
+                channel_code="midmarket",
+                base_currency="CNY",
+                quote_currency="MYR",
+                rate=Decimal("0.65"),
+                rate_type="midmarket",
+                raw_payload={},
+                fetched_at=t0,
+            ),
+            RateSnapshot(
+                channel_code="midmarket",
+                base_currency="CNY",
+                quote_currency="MYR",
+                rate=Decimal("0.66"),
+                rate_type="midmarket",
+                raw_payload={},
+                fetched_at=t1,
+            ),
+            RateSnapshot(
+                channel_code="midmarket",
+                base_currency="CNY",
+                quote_currency="MYR",
+                rate=Decimal("0.66"),
+                rate_type="midmarket",
+                raw_payload={},
+                fetched_at=t2,
+            ),
+        ]
+    )
+    await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/rates/latest")
+    row = resp.json()[0]
+    # latest poll time
+    assert row["fetched_at"].startswith("2026-06-01T02:00")
+    # value last changed at t1, not t2
+    assert row["rate_changed_at"].startswith("2026-06-01T01:00")
+
+
+@pytest.mark.asyncio
+async def test_rates_latest_daily_channel_not_stale_within_30h(session):
+    """A 'daily' channel polled ~20 h ago must NOT be stale (regression: the
+    old flat 12 h threshold flipped daily channels to 暂时不可用 every day)."""
+    from datetime import timedelta
+
+    session.add(Currency(code="CNY", name_en="Chinese Yuan", name_zh="人民币"))
+    session.add(Currency(code="MYR", name_en="Malaysian Ringgit", name_zh="马来西亚林吉特"))
+    session.add(
+        Channel(
+            code="midmarket",
+            name_en="Mid",
+            name_zh="中间价",
+            active=True,
+            schedule_kind="daily",
+            daily_time_cn="17:00",
+        )
+    )
+    twenty_h_ago = datetime.now(UTC) - timedelta(hours=20)
+    session.add(
+        RateSnapshot(
+            channel_code="midmarket",
+            base_currency="CNY",
+            quote_currency="MYR",
+            rate=Decimal("0.66"),
+            rate_type="midmarket",
+            raw_payload={},
+            fetched_at=twenty_h_ago,
+        )
+    )
+    await session.commit()
+
+    transport = ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.get("/api/rates/latest")
+    row = resp.json()[0]
+    assert row["is_stale"] is False  # 20 h < 24 h + 6 h daily window
+
+
+@pytest.mark.asyncio
 async def test_rates_latest_empty_when_no_snapshots(session):
     transport = ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:

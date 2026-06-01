@@ -30,24 +30,46 @@ router = APIRouter(prefix="/api", tags=["public"])
 HEADLINE_CHANNEL_KEY = "display.headline_channel"
 DEFAULT_HEADLINE_CHANNEL = "midmarket"
 
-# A snapshot is considered "stale" if its last_success is older than this.
-# Default tracks the slowest intraday channel; daily channels need a longer
-# window so a single missed wall-clock fire doesn't flip them to 'stale'.
+# Fallback staleness window for an interval channel with no/odd interval.
 STALE_THRESHOLD = timedelta(hours=12)
-PER_CHANNEL_STALE_THRESHOLD: dict[str, timedelta] = {
-    # UnionPay publishes once per day around 11:00 Beijing time and our
-    # cron fires at 11:30; 30 h covers the full day-to-day window plus
-    # margin for upstream delays.
-    "unionpay": timedelta(hours=30),
-    # Maybank resets its board ~17:20 MYT and we fetch daily at 18:00 东八区;
-    # same daily cadence as UnionPay, so it needs the same wide window or it
-    # would flip to 'stale' a few hours after each successful daily fetch.
-    "maybank": timedelta(hours=30),
-}
+# Extra margin added on top of a channel's nominal cadence before we call it
+# stale, so one missed/late fire (or a cross-midnight gap on a daily/weekly
+# channel) doesn't flip a healthy channel to "暂时不可用".
+_DAILY_GRACE = timedelta(hours=6)
+_WEEKDAY_INDEX = {d: i for i, d in enumerate(("mon", "tue", "wed", "thu", "fri", "sat", "sun"))}
 
 
-def _stale_threshold_for(channel_code: str) -> timedelta:
-    return PER_CHANNEL_STALE_THRESHOLD.get(channel_code, STALE_THRESHOLD)
+def _stale_threshold_for(ch: Channel) -> timedelta:
+    """Derive the staleness window from the channel's SCHEDULE, not a hardcoded
+    per-code table. This means any channel the admin switches to daily/weekly
+    automatically gets a window wide enough to survive the gap between fires —
+    fixing the bug where a 'daily' channel went stale for ~12 h every day under
+    the old flat 12 h threshold.
+
+    - interval : 2× the interval, floored at 12 h (covers a missed tick).
+    - daily    : 24 h + 6 h grace = 30 h.
+    - weekly   : the largest gap between consecutive selected weekdays, + a day,
+                 + 6 h grace (so Fri→Mon, a 3-day gap, stays fresh over a
+                 weekend). Falls back to 8 days if weekdays are unset/garbled.
+    """
+    kind = ch.schedule_kind
+    if kind == "daily":
+        return timedelta(hours=24) + _DAILY_GRACE
+    if kind == "weekly":
+        days = [d.strip().lower() for d in (ch.weekdays or "").split(",") if d.strip()]
+        idx = sorted(_WEEKDAY_INDEX[d] for d in days if d in _WEEKDAY_INDEX)
+        if not idx:
+            return timedelta(days=8)
+        # Largest gap between consecutive runs, wrapping around the week.
+        max_gap = max(
+            [(b - a) for a, b in zip(idx, idx[1:], strict=False)] + [idx[0] + 7 - idx[-1]]
+        )
+        return timedelta(days=max_gap) + _DAILY_GRACE
+    # interval (default)
+    minutes = ch.interval_minutes or 0
+    if minutes > 0:
+        return max(timedelta(minutes=2 * minutes), STALE_THRESHOLD)
+    return STALE_THRESHOLD
 
 
 @router.get("/config", response_model=ConfigResponse)
@@ -70,7 +92,7 @@ async def health(session: Annotated[AsyncSession, Depends(get_session)]) -> Heal
     for ch in result.scalars():
         if ch.last_success_at is None:
             channels[ch.code] = "stale"
-        elif now - _as_utc(ch.last_success_at) > _stale_threshold_for(ch.code):
+        elif now - _as_utc(ch.last_success_at) > _stale_threshold_for(ch):
             channels[ch.code] = "stale"
         else:
             channels[ch.code] = "fresh"
@@ -121,6 +143,7 @@ async def rates_latest(
     out: list[LatestRate] = []
     for snap, channel in rows:
         fetched_at = _as_utc(snap.fetched_at)
+        changed_at = await _rate_changed_at(session, channel.code, base, quote, snap)
         out.append(
             LatestRate(
                 channel_code=channel.code,
@@ -131,11 +154,51 @@ async def rates_latest(
                 fee_estimate=snap.fee_estimate,
                 fee_currency=snap.fee_currency,
                 fetched_at=fetched_at,
-                is_stale=(now - fetched_at) > _stale_threshold_for(channel.code),
+                rate_changed_at=changed_at,
+                is_stale=(now - fetched_at) > _stale_threshold_for(channel),
             )
         )
     out.sort(key=lambda r: r.channel_code)
     return out
+
+
+# How far back to look when finding when the rate last changed. A daily
+# channel publishing the same value for a fortnight is unusual; 200 rows
+# (e.g. ~33 h for the 10-min Wise poll, or ~25 days for a 3 h bank poll) is a
+# generous, cheap bound. If the value never changed within the window we just
+# report the oldest seen — honest and never newer than the truth.
+_CHANGE_LOOKBACK = 200
+
+
+async def _rate_changed_at(
+    session: AsyncSession,
+    channel_code: str,
+    base: str,
+    quote: str,
+    latest: RateSnapshot,
+) -> datetime:
+    """Return when this channel's rate VALUE last changed: the fetched_at of
+    the oldest snapshot in the unbroken run of snapshots (newest-first) whose
+    rate equals the latest. So a rate that hasn't moved keeps its original
+    'updated' time instead of appearing to refresh on every poll."""
+    q = (
+        select(RateSnapshot.rate, RateSnapshot.fetched_at)
+        .where(
+            and_(
+                RateSnapshot.channel_code == channel_code,
+                RateSnapshot.base_currency == base,
+                RateSnapshot.quote_currency == quote,
+            )
+        )
+        .order_by(RateSnapshot.fetched_at.desc())
+        .limit(_CHANGE_LOOKBACK)
+    )
+    changed_at = _as_utc(latest.fetched_at)
+    for rate, fetched_at in (await session.execute(q)).all():
+        if rate != latest.rate:
+            break
+        changed_at = _as_utc(fetched_at)
+    return changed_at
 
 
 @router.get("/rates/history", response_model=list[HistoryPoint])
