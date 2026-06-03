@@ -124,6 +124,13 @@ class MaybankScraper(Scraper):
             "waitFor": 3000,  # let the rate table's JS settle
             "timeout": 60000,  # Firecrawl-side cap (ms)
             "proxy": FIRECRAWL_PROXY,
+            # Force a LIVE fetch. Firecrawl /v1/scrape defaults to returning a
+            # cached result (~2-day maxAge) when it has scraped this URL
+            # recently — which made our daily poll keep returning a stale rate
+            # for days after Maybank actually updated. maxAge=0 disables the
+            # read-through cache so every poll re-fetches the live page.
+            # See CLAUDE.md §6. # TODO recheck-2026-11: confirm key name `maxAge`.
+            "maxAge": 0,
         }
         headers = {
             "Authorization": f"Bearer {key}",

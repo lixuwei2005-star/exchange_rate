@@ -100,10 +100,17 @@ async def test_maybank_picks_cny_buy_tt_and_divides_by_multiplier():
     assert r.raw_payload["via"] == "firecrawl"
     assert r.raw_payload["source_status_code"] == 200
 
-    # The request must carry our auth + project UA, and ask for rawHtml.
+    # The request must carry our auth + project UA, ask for rawHtml, and
+    # disable Firecrawl's read-through cache (maxAge=0) so we never serve a
+    # days-old cached rate.
+    import json as _json
+
     sent = route.calls.last.request
     assert sent.headers["Authorization"] == f"Bearer {FIXTURE_KEY}"
     assert "rate.005917.xyz" in sent.headers["User-Agent"]
+    body = _json.loads(sent.content)
+    assert body["maxAge"] == 0
+    assert body["formats"] == ["rawHtml"]
 
 
 # ---- key handling -----------------------------------------------------
